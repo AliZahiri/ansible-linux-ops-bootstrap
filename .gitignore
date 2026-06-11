@@ -3,3 +3,5 @@
 vault.yml
 *.log
 .DS_Store
+__pycache__/
+*.pyc

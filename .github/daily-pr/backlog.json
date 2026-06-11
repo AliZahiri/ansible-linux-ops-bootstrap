@@ -1,0 +1,58 @@
+{
+  "tasks": [
+    {
+      "id": "inventory-validation",
+      "title": "Add inventory validation notes",
+      "target_file": "docs/daily/inventory-validation.md",
+      "content": "Inventory validation should happen before running playbooks against production hosts. A small mistake in group membership or host variables can apply roles to the wrong server.\n\nValidation checks:\n\n- expected host groups exist\n- hostnames and IPs are documented\n- SSH user is explicit\n- production and sample inventories are separate\n- sensitive variables are not committed in plain text",
+      "portfolio_reason": "Shows operational caution around Ansible-driven server changes.",
+      "test_instructions": "Review the markdown file and confirm it separates sample and production inventory concerns.",
+      "change_kind": "docs-only"
+    },
+    {
+      "id": "restore-runbook",
+      "title": "Add backup restore runbook outline",
+      "target_file": "docs/daily/restore-runbook.md",
+      "content": "A backup is only useful when restore has been tested. Restore documentation should be available beside backup automation.\n\nRestore runbook outline:\n\n- identify target backup artifact\n- provision or isolate restore target\n- load required credentials securely\n- run restore command\n- verify application-level data integrity\n- document recovery time and recovery point",
+      "portfolio_reason": "Balances backup automation with real recovery readiness.",
+      "test_instructions": "Review the markdown file and confirm it includes verification after restore.",
+      "change_kind": "docs-only"
+    },
+    {
+      "id": "ssh-hardening-notes",
+      "title": "Add SSH hardening notes",
+      "target_file": "docs/daily/ssh-hardening-notes.md",
+      "content": "SSH hardening should be staged carefully so automation access is not accidentally locked out.\n\nRecommended sequence:\n\n- confirm non-root sudo user access\n- install and test SSH keys\n- restrict password authentication after key access works\n- limit SSH networks where possible\n- keep a break-glass access path documented",
+      "portfolio_reason": "Shows production-safe Linux hardening thinking, not just a checklist.",
+      "test_instructions": "Review the markdown file and confirm it warns against locking out automation.",
+      "change_kind": "docs-only"
+    },
+    {
+      "id": "docker-host-baseline",
+      "title": "Document Docker host baseline",
+      "target_file": "docs/daily/docker-host-baseline.md",
+      "content": "Docker hosts should have a predictable baseline before application deployment.\n\nBaseline items:\n\n- Docker service enabled and monitored\n- compose plugin available\n- app deployment user has required permissions\n- log rotation is configured\n- disk usage is monitored\n- container restart policy is documented",
+      "portfolio_reason": "Connects Linux bootstrap automation with Docker Compose production workloads.",
+      "test_instructions": "Review the markdown file and confirm it avoids environment-specific secrets.",
+      "change_kind": "docs-only"
+    },
+    {
+      "id": "node-exporter-alerts",
+      "title": "Add Node Exporter alert planning notes",
+      "target_file": "docs/daily/node-exporter-alerts.md",
+      "content": "Node Exporter metrics become more useful when paired with baseline alerts.\n\nStarter alert areas:\n\n- disk space and inode pressure\n- high load average\n- memory pressure\n- network saturation\n- filesystem read-only state\n- systemd service failures where collected separately",
+      "portfolio_reason": "Shows that monitoring installation is tied to actionable operations.",
+      "test_instructions": "Review the markdown file and confirm alert areas are host-level and actionable.",
+      "change_kind": "docs-only"
+    },
+    {
+      "id": "ansible-vault-guidance",
+      "title": "Add Ansible Vault guidance",
+      "target_file": "docs/daily/ansible-vault-guidance.md",
+      "content": "Secrets should be kept out of inventories and role defaults. Ansible Vault can protect sensitive values while keeping automation repeatable.\n\nVault usage guidance:\n\n- store secrets in encrypted variable files\n- keep sample variables non-sensitive\n- document required variable names\n- avoid putting vault passwords in the repository\n- test playbooks with a non-production vault first",
+      "portfolio_reason": "Improves the security story for Ansible-based operational automation.",
+      "test_instructions": "Review the markdown file and confirm it does not include real secret examples.",
+      "change_kind": "docs-only"
+    }
+  ]
+}
