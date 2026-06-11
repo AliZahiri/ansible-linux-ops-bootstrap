@@ -1,0 +1,24 @@
+- name: Configure timezone
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure operations user exists
+  ansible.builtin.user:
+    name: "{{ ops_user }}"
+    groups: "{{ ops_groups }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Enable unattended upgrades
+  ansible.builtin.systemd:
+    name: unattended-upgrades
+    enabled: true
+    state: started

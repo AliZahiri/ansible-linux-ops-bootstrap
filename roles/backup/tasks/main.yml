@@ -1,0 +1,15 @@
+- name: Ensure backup directory exists
+  ansible.builtin.file:
+    path: "{{ backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install PostgreSQL backup helper
+  ansible.builtin.template:
+    src: backup-postgres.sh.j2
+    dest: /usr/local/sbin/backup-postgres.sh
+    owner: root
+    group: root
+    mode: "0750"

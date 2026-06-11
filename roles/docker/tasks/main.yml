@@ -1,0 +1,19 @@
+- name: Install Docker packages
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Add operations user to docker group
+  ansible.builtin.user:
+    name: "{{ ops_user }}"
+    groups:
+      - docker
+    append: true
