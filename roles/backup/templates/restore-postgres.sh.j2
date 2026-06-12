@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${RESTORE_FILE:?RESTORE_FILE is required}"
+: "${POSTGRES_HOST:?POSTGRES_HOST is required}"
+: "${POSTGRES_DB:?POSTGRES_DB is required}"
+: "${POSTGRES_USER:?POSTGRES_USER is required}"
+: "${PGPASSWORD:?PGPASSWORD is required}"
+
+if [[ ! -f "$RESTORE_FILE" ]]; then
+  echo "Restore file not found: $RESTORE_FILE" >&2
+  exit 1
+fi
+
+pg_restore \
+  --host "$POSTGRES_HOST" \
+  --username "$POSTGRES_USER" \
+  --dbname "$POSTGRES_DB" \
+  --clean \
+  --if-exists \
+  --no-owner \
+  "$RESTORE_FILE"
