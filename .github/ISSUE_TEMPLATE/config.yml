@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Operations discussion
+    url: https://github.com/AliZahiri/ansible-linux-ops-bootstrap/discussions
+    about: Use discussions for Linux operations, hardening, and runbook questions.
