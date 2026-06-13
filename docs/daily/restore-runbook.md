@@ -1,7 +1,8 @@
-# Backup Restore Runbook Outline
+# Add backup restore runbook outline
 
-A backup is only useful when restore has been tested. Restore documentation
-should be available beside backup automation.
+<!-- daily-pr-task: restore-runbook -->
+
+A backup is only useful when restore has been tested. Restore documentation should be available beside backup automation.
 
 Restore runbook outline:
 
@@ -12,6 +13,10 @@ Restore runbook outline:
 - verify application-level data integrity
 - document recovery time and recovery point
 
-The operational goal is to prove that backup automation can support an actual
-recovery workflow. A restore drill should record what was restored, where it was
-restored, how long it took, and what verification showed after the restore.
+## Portfolio Value
+
+Balances backup automation with real recovery readiness.
+
+## Validation
+
+Review the markdown file and confirm it includes verification after restore.
