@@ -1,0 +1,29 @@
+name: Operations task
+description: Track a concrete Ansible, Linux hardening, backup, or monitoring improvement.
+title: "[ops]: "
+labels: ["enhancement", "operations"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should improve in the operational automation?
+      placeholder: Add a restore verification task that checks database connectivity after pg_restore.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Operational risk
+      description: What could go wrong if this task is applied incorrectly?
+      placeholder: Restore helper could target the wrong database if environment variables are not explicit.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: Which tests or dry-runs should pass?
+      placeholder: python3 -m unittest discover -s tests
+    validations:
+      required: true
