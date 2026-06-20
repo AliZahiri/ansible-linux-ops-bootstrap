@@ -23,9 +23,24 @@
       "title": "Add SSH hardening notes",
       "target_file": "docs/daily/ssh-hardening-notes.md",
       "content": "SSH hardening should be staged carefully so automation access is not accidentally locked out.\n\nRecommended sequence:\n\n- confirm non-root sudo user access\n- install and test SSH keys\n- restrict password authentication after key access works\n- limit SSH networks where possible\n- keep a break-glass access path documented",
+      "files": [
+        {
+          "path": "docs/daily/ssh-hardening-notes.md",
+          "kind": "document",
+          "content": "SSH hardening should be staged carefully so automation access is not accidentally locked out.\n\nRecommended sequence:\n\n- confirm non-root sudo user access\n- install and test SSH keys\n- restrict password authentication after key access works\n- limit SSH networks where possible\n- keep a break-glass access path documented"
+        },
+        {
+          "path": "roles/common/templates/sshd-hardening.conf.j2",
+          "content": "PasswordAuthentication no\nPermitRootLogin no\nPubkeyAuthentication yes\nX11Forwarding no\nAllowTcpForwarding no\nClientAliveInterval 300\nClientAliveCountMax 2\n"
+        },
+        {
+          "path": "tests/test_ssh_hardening_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SshHardeningTemplateTests(unittest.TestCase):\n    def test_template_disables_password_and_root_login(self):\n        template = ROOT / \"roles/common/templates/sshd-hardening.conf.j2\"\n        content = template.read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"PasswordAuthentication no\", content)\n        self.assertIn(\"PermitRootLogin no\", content)\n\n    def test_template_keeps_key_authentication_enabled(self):\n        template = ROOT / \"roles/common/templates/sshd-hardening.conf.j2\"\n        content = template.read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"PubkeyAuthentication yes\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ],
       "portfolio_reason": "Shows production-safe Linux hardening thinking, not just a checklist.",
       "test_instructions": "Review the markdown file and confirm it warns against locking out automation.",
-      "change_kind": "docs-only"
+      "change_kind": "docs-and-code"
     },
     {
       "id": "docker-host-baseline",
