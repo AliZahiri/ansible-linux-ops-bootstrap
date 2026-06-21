@@ -49,7 +49,26 @@
       "content": "Docker hosts should have a predictable baseline before application deployment.\n\nBaseline items:\n\n- Docker service enabled and monitored\n- compose plugin available\n- app deployment user has required permissions\n- log rotation is configured\n- disk usage is monitored\n- container restart policy is documented",
       "portfolio_reason": "Connects Linux bootstrap automation with Docker Compose production workloads.",
       "test_instructions": "Review the markdown file and confirm it avoids environment-specific secrets.",
-      "change_kind": "docs-only"
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/docker-host-baseline.md",
+          "kind": "document",
+          "content": "Docker hosts should have a predictable baseline before application deployment.\n\nBaseline items:\n\n- Docker service enabled and monitored\n- compose plugin available\n- app deployment user has required permissions\n- log rotation is configured\n- disk usage is monitored\n- container restart policy is documented"
+        },
+        {
+          "path": "roles/docker/tasks/baseline.yml",
+          "content": "- name: Ensure Docker configuration directory exists\n  ansible.builtin.file:\n    path: /etc/docker\n    state: directory\n    owner: root\n    group: root\n    mode: \"0755\"\n\n- name: Install Docker daemon baseline configuration\n  ansible.builtin.template:\n    src: daemon.json.j2\n    dest: /etc/docker/daemon.json\n    owner: root\n    group: root\n    mode: \"0644\"\n"
+        },
+        {
+          "path": "roles/docker/templates/daemon.json.j2",
+          "content": "{\n  \"live-restore\": true,\n  \"log-driver\": \"json-file\",\n  \"log-opts\": {\n    \"max-size\": \"100m\",\n    \"max-file\": \"3\"\n  }\n}\n"
+        },
+        {
+          "path": "tests/test_docker_baseline.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass DockerBaselineTests(unittest.TestCase):\n    def test_daemon_template_enables_live_restore_and_log_rotation(self):\n        template = ROOT / \"roles/docker/templates/daemon.json.j2\"\n        content = template.read_text(encoding=\"utf-8\")\n\n        self.assertIn('\"live-restore\": true', content)\n        self.assertIn('\"max-size\": \"100m\"', content)\n        self.assertIn('\"max-file\": \"3\"', content)\n\n    def test_baseline_task_installs_daemon_config(self):\n        task = ROOT / \"roles/docker/tasks/baseline.yml\"\n        content = task.read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"daemon.json.j2\", content)\n        self.assertIn(\"/etc/docker/daemon.json\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     },
     {
       "id": "node-exporter-alerts",
@@ -58,7 +77,22 @@
       "content": "Node Exporter metrics become more useful when paired with baseline alerts.\n\nStarter alert areas:\n\n- disk space and inode pressure\n- high load average\n- memory pressure\n- network saturation\n- filesystem read-only state\n- systemd service failures where collected separately",
       "portfolio_reason": "Shows that monitoring installation is tied to actionable operations.",
       "test_instructions": "Review the markdown file and confirm alert areas are host-level and actionable.",
-      "change_kind": "docs-only"
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/node-exporter-alerts.md",
+          "kind": "document",
+          "content": "Node Exporter metrics become more useful when paired with baseline alerts.\n\nStarter alert areas:\n\n- disk space and inode pressure\n- high load average\n- memory pressure\n- network saturation\n- filesystem read-only state\n- systemd service failures where collected separately"
+        },
+        {
+          "path": "roles/node_exporter/templates/node-exporter-alerts.yml.j2",
+          "content": "groups:\n  - name: node-exporter-baseline\n    rules:\n      - alert: HostDiskSpaceLow\n        expr: node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.15\n        for: 10m\n        labels:\n          severity: warning\n        annotations:\n          summary: Host disk space is below baseline threshold\n      - alert: HostMemoryPressure\n        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10\n        for: 10m\n        labels:\n          severity: warning\n        annotations:\n          summary: Host memory pressure is above baseline threshold\n"
+        },
+        {
+          "path": "tests/test_node_exporter_alerts.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass NodeExporterAlertsTests(unittest.TestCase):\n    def test_alert_template_contains_disk_and_memory_alerts(self):\n        template = ROOT / \"roles/node_exporter/templates/node-exporter-alerts.yml.j2\"\n        content = template.read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"HostDiskSpaceLow\", content)\n        self.assertIn(\"HostMemoryPressure\", content)\n        self.assertIn(\"node_filesystem_avail_bytes\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     },
     {
       "id": "ansible-vault-guidance",
@@ -67,7 +101,22 @@
       "content": "Secrets should be kept out of inventories and role defaults. Ansible Vault can protect sensitive values while keeping automation repeatable.\n\nVault usage guidance:\n\n- store secrets in encrypted variable files\n- keep sample variables non-sensitive\n- document required variable names\n- avoid putting vault passwords in the repository\n- test playbooks with a non-production vault first",
       "portfolio_reason": "Improves the security story for Ansible-based operational automation.",
       "test_instructions": "Review the markdown file and confirm it does not include real secret examples.",
-      "change_kind": "docs-only"
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/ansible-vault-guidance.md",
+          "kind": "document",
+          "content": "Secrets should be kept out of inventories and role defaults. Ansible Vault can protect sensitive values while keeping automation repeatable.\n\nVault usage guidance:\n\n- store secrets in encrypted variable files\n- keep sample variables non-sensitive\n- document required variable names\n- avoid putting vault passwords in the repository\n- test playbooks with a non-production vault first"
+        },
+        {
+          "path": "group_vars/vault.example.yml",
+          "content": "# Encrypt the real file with ansible-vault before production use.\npostgres_password: CHANGE_ME_WITH_ANSIBLE_VAULT\ndeploy_private_key: CHANGE_ME_WITH_ANSIBLE_VAULT\nbackup_encryption_key: CHANGE_ME_WITH_ANSIBLE_VAULT\n"
+        },
+        {
+          "path": "tests/test_vault_example.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass VaultExampleTests(unittest.TestCase):\n    def test_vault_example_uses_placeholders_only(self):\n        example = ROOT / \"group_vars/vault.example.yml\"\n        content = example.read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"CHANGE_ME_WITH_ANSIBLE_VAULT\", content)\n        self.assertNotIn(\"password123\", content.lower())\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     }
   ]
 }
