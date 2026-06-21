@@ -1,0 +1,17 @@
+groups:
+  - name: node-exporter-baseline
+    rules:
+      - alert: HostDiskSpaceLow
+        expr: node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host disk space is below baseline threshold
+      - alert: HostMemoryPressure
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host memory pressure is above baseline threshold
