@@ -2,7 +2,8 @@ groups:
   - name: node-exporter-baseline
     rules:
       - alert: HostDiskSpaceLow
-        expr: node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.15
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} < 0.15
         for: 10m
         labels:
           severity: warning
@@ -15,3 +16,10 @@ groups:
           severity: warning
         annotations:
           summary: Host memory pressure is above baseline threshold
+      - alert: HostFilesystemReadOnly
+        expr: node_filesystem_readonly{fstype!~"tmpfs|overlay|squashfs"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Host filesystem is mounted read-only
