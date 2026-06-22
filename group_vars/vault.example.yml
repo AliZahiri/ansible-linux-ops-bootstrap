@@ -1,0 +1,4 @@
+# Encrypt the real file with ansible-vault before production use.
+postgres_password: CHANGE_ME_WITH_ANSIBLE_VAULT
+deploy_private_key: CHANGE_ME_WITH_ANSIBLE_VAULT
+backup_encryption_key: CHANGE_ME_WITH_ANSIBLE_VAULT
