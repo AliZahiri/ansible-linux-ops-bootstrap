@@ -117,6 +117,72 @@
           "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass VaultExampleTests(unittest.TestCase):\n    def test_vault_example_uses_placeholders_only(self):\n        example = ROOT / \"group_vars/vault.example.yml\"\n        content = example.read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"CHANGE_ME_WITH_ANSIBLE_VAULT\", content)\n        self.assertNotIn(\"password123\", content.lower())\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
         }
       ]
+    },
+    {
+      "id": "sudoers-dropin-policy",
+      "title": "Add sudoers drop-in policy",
+      "portfolio_reason": "Shows safer privilege boundaries for deployment users on Linux hosts.",
+      "test_instructions": "Run the unit test and confirm sudoers drop-in does not grant broad ALL privileges.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/sudoers-dropin-policy.md",
+          "kind": "document",
+          "content": "Deployment users should receive narrow sudo permissions instead of broad root access. A sudoers drop-in can document the exact operational commands allowed for automation.\n\nPolicy checks:\n\n- deploy user variable is explicit\n- allowed commands are narrow\n- no blanket `ALL` command grant\n- file mode is managed by Ansible"
+        },
+        {
+          "path": "roles/common/templates/sudoers-deploy.j2",
+          "content": "# Managed by Ansible. Validate with visudo before enabling.\n{{ deploy_user }} ALL=(root) NOPASSWD: /usr/bin/systemctl restart docker, /usr/bin/systemctl reload nginx\n"
+        },
+        {
+          "path": "tests/test_sudoers_dropin.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SudoersDropinTests(unittest.TestCase):\n    def test_sudoers_dropin_limits_commands(self):\n        content = (ROOT / \"roles/common/templates/sudoers-deploy.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"{{ deploy_user }}\", content)\n        self.assertIn(\"/usr/bin/systemctl reload nginx\", content)\n        self.assertNotIn(\"NOPASSWD: ALL\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
+    },
+    {
+      "id": "backup-retention-policy",
+      "title": "Add backup retention policy",
+      "portfolio_reason": "Completes the backup story with retention controls that prevent unbounded storage growth.",
+      "test_instructions": "Run the unit test and confirm retention values are positive and ordered.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/backup-retention-policy.md",
+          "kind": "document",
+          "content": "Backup automation should include retention policy so storage usage and recovery expectations are explicit. Short-term daily backups and longer monthly retention should be documented separately.\n\nPolicy fields:\n\n- daily retention days\n- monthly retention months\n- minimum restore points\n- encrypted archive requirement"
+        },
+        {
+          "path": "roles/backup/templates/backup-retention.env.j2",
+          "content": "BACKUP_DAILY_RETENTION_DAYS={{ backup_daily_retention_days | default(14) }}\nBACKUP_MONTHLY_RETENTION_MONTHS={{ backup_monthly_retention_months | default(6) }}\nBACKUP_MIN_RESTORE_POINTS={{ backup_min_restore_points | default(3) }}\nBACKUP_ENCRYPTION_REQUIRED=true\n"
+        },
+        {
+          "path": "tests/test_backup_retention_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass BackupRetentionTemplateTests(unittest.TestCase):\n    def test_retention_template_has_positive_defaults_and_encryption(self):\n        content = (ROOT / \"roles/backup/templates/backup-retention.env.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"default(14)\", content)\n        self.assertIn(\"default(6)\", content)\n        self.assertIn(\"BACKUP_ENCRYPTION_REQUIRED=true\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
+    },
+    {
+      "id": "firewall-baseline-policy",
+      "title": "Add firewall baseline policy",
+      "portfolio_reason": "Shows host hardening includes explicit inbound access rules, not only package installation.",
+      "test_instructions": "Run the unit test and confirm SSH and application ports are explicit.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/firewall-baseline-policy.md",
+          "kind": "document",
+          "content": "A firewall baseline should make inbound access explicit. SSH should be limited to trusted networks, and application ports should be declared by variable rather than hidden in role logic.\n\nBaseline rules:\n\n- default deny inbound\n- allow trusted SSH networks\n- allow declared application ports\n- keep rule comments reviewable"
+        },
+        {
+          "path": "roles/firewall/templates/ufw-baseline.rules.j2",
+          "content": "# Managed by Ansible\ndefault deny incoming\ndefault allow outgoing\nallow from {{ trusted_ssh_cidr }} to any port 22 proto tcp comment 'trusted ssh'\n{% for port in app_tcp_ports | default([]) %}\nallow {{ port }}/tcp comment 'application tcp port'\n{% endfor %}\n"
+        },
+        {
+          "path": "tests/test_firewall_baseline_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass FirewallBaselineTemplateTests(unittest.TestCase):\n    def test_firewall_template_declares_ssh_and_app_ports(self):\n        content = (ROOT / \"roles/firewall/templates/ufw-baseline.rules.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"default deny incoming\", content)\n        self.assertIn(\"trusted_ssh_cidr\", content)\n        self.assertIn(\"app_tcp_ports\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     }
   ]
 }
