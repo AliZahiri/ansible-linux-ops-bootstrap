@@ -1,0 +1,7 @@
+# Managed by Ansible
+default deny incoming
+default allow outgoing
+allow from {{ trusted_ssh_cidr }} to any port 22 proto tcp comment 'trusted ssh'
+{% for port in app_tcp_ports | default([]) %}
+allow {{ port }}/tcp comment 'application tcp port'
+{% endfor %}
