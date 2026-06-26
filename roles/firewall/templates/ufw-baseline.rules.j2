@@ -2,6 +2,9 @@
 default deny incoming
 default allow outgoing
 allow from {{ trusted_ssh_cidr }} to any port 22 proto tcp comment 'trusted ssh'
-{% for port in app_tcp_ports | default([]) %}
+{% for port in app_tcp_ports | default([]) | unique | sort %}
 allow {{ port }}/tcp comment 'application tcp port'
+{% endfor %}
+{% for cidr in trusted_app_cidrs | default([]) | unique | sort %}
+allow from {{ cidr }} to any port {{ app_private_port }} proto tcp comment 'trusted private app access'
 {% endfor %}

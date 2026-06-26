@@ -183,6 +183,50 @@
           "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass FirewallBaselineTemplateTests(unittest.TestCase):\n    def test_firewall_template_declares_ssh_and_app_ports(self):\n        content = (ROOT / \"roles/firewall/templates/ufw-baseline.rules.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"default deny incoming\", content)\n        self.assertIn(\"trusted_ssh_cidr\", content)\n        self.assertIn(\"app_tcp_ports\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
         }
       ]
+    },
+    {
+      "id": "systemd-service-policy",
+      "title": "Add systemd service policy",
+      "portfolio_reason": "Shows Linux bootstrap roles manage service reliability instead of only installing packages.",
+      "test_instructions": "Run the unit test and confirm restart policy is explicit.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/systemd-service-policy.md",
+          "kind": "document",
+          "content": "Systemd units for platform services should include restart behavior, dependency ordering, and log visibility. This makes service recovery predictable after host changes.\n\nPolicy checks:\n\n- restart policy\n- restart delay\n- wanted-by target\n- environment file path"
+        },
+        {
+          "path": "roles/common/templates/platform-service.service.j2",
+          "content": "[Unit]\nDescription={{ service_description | default('Platform service') }}\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nEnvironmentFile={{ service_environment_file }}\nExecStart={{ service_exec_start }}\nRestart=on-failure\nRestartSec=5s\n\n[Install]\nWantedBy=multi-user.target\n"
+        },
+        {
+          "path": "tests/test_systemd_service_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SystemdServiceTemplateTests(unittest.TestCase):\n    def test_service_template_has_restart_and_environment_file(self):\n        content = (ROOT / \"roles/common/templates/platform-service.service.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"Restart=on-failure\", content)\n        self.assertIn(\"EnvironmentFile={{ service_environment_file }}\", content)\n        self.assertIn(\"WantedBy=multi-user.target\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
+    },
+    {
+      "id": "logrotate-baseline-policy",
+      "title": "Add logrotate baseline policy",
+      "portfolio_reason": "Shows host bootstrap includes disk hygiene for long-running services.",
+      "test_instructions": "Run the unit test and confirm rotation and compression are configured.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/logrotate-baseline-policy.md",
+          "kind": "document",
+          "content": "Log rotation should be installed alongside long-running services so disks do not fill silently. Baseline policy should define rotation frequency, retention, compression, and missing file behavior.\n\nPolicy fields:\n\n- log path\n- rotate count\n- compression\n- missingok behavior"
+        },
+        {
+          "path": "roles/common/templates/platform-logrotate.j2",
+          "content": "{{ platform_log_path }} {\n  daily\n  rotate {{ platform_log_rotate_count | default(14) }}\n  compress\n  missingok\n  notifempty\n}\n"
+        },
+        {
+          "path": "tests/test_logrotate_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass LogrotateTemplateTests(unittest.TestCase):\n    def test_logrotate_template_sets_rotation_and_compression(self):\n        content = (ROOT / \"roles/common/templates/platform-logrotate.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"daily\", content)\n        self.assertIn(\"compress\", content)\n        self.assertIn(\"missingok\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     }
   ]
 }
