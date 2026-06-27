@@ -1,0 +1,13 @@
+[Unit]
+Description={{ service_description | default('Platform service') }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile={{ service_environment_file }}
+ExecStart={{ service_exec_start }}
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
