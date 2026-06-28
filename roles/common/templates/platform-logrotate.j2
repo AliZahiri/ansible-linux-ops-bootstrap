@@ -1,0 +1,7 @@
+{{ platform_log_path }} {
+  daily
+  rotate {{ platform_log_rotate_count | default(14) }}
+  compress
+  missingok
+  notifempty
+}
