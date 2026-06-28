@@ -12,6 +12,13 @@ class LogrotateTemplateTests(unittest.TestCase):
         self.assertIn("compress", content)
         self.assertIn("missingok", content)
 
+    def test_logrotate_template_preserves_running_service_logs(self):
+        content = (ROOT / "roles/common/templates/platform-logrotate.j2").read_text(encoding="utf-8")
+
+        self.assertIn("copytruncate", content)
+        self.assertIn("delaycompress", content)
+        self.assertIn("create 0640", content)
+
 
 if __name__ == "__main__":
     unittest.main()

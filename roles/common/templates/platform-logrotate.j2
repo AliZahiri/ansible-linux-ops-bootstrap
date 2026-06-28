@@ -2,6 +2,9 @@
   daily
   rotate {{ platform_log_rotate_count | default(14) }}
   compress
+  delaycompress
+  copytruncate
   missingok
   notifempty
+  create 0640 {{ platform_log_owner | default('root') }} {{ platform_log_group | default('adm') }}
 }

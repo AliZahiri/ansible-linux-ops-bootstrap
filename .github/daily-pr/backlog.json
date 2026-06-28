@@ -227,6 +227,50 @@
           "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass LogrotateTemplateTests(unittest.TestCase):\n    def test_logrotate_template_sets_rotation_and_compression(self):\n        content = (ROOT / \"roles/common/templates/platform-logrotate.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"daily\", content)\n        self.assertIn(\"compress\", content)\n        self.assertIn(\"missingok\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
         }
       ]
+    },
+    {
+      "id": "auditd-baseline-policy",
+      "title": "Add auditd baseline policy",
+      "portfolio_reason": "Shows Linux bootstrap includes audit visibility for sensitive system paths.",
+      "test_instructions": "Run the unit test and confirm audit rules watch SSH and sudoers paths.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/auditd-baseline-policy.md",
+          "kind": "document",
+          "content": "Audit baseline policy should watch sensitive authentication and privilege paths. This improves host investigation readiness after operational changes.\n\nWatched paths:\n\n- sshd configuration\n- sudoers configuration\n- user and group databases\n- package manager history"
+        },
+        {
+          "path": "roles/common/templates/auditd-baseline.rules.j2",
+          "content": "-w /etc/ssh/sshd_config -p wa -k sshd_config\n-w /etc/sudoers -p wa -k sudoers\n-w /etc/passwd -p wa -k identity\n-w /etc/group -p wa -k identity\n"
+        },
+        {
+          "path": "tests/test_auditd_baseline_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass AuditdBaselineTemplateTests(unittest.TestCase):\n    def test_auditd_template_watches_sensitive_paths(self):\n        content = (ROOT / \"roles/common/templates/auditd-baseline.rules.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"/etc/ssh/sshd_config\", content)\n        self.assertIn(\"/etc/sudoers\", content)\n        self.assertIn(\"/etc/passwd\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
+    },
+    {
+      "id": "unattended-upgrades-policy",
+      "title": "Add unattended upgrades policy",
+      "portfolio_reason": "Shows host bootstrap includes patching behavior with controlled reboot policy.",
+      "test_instructions": "Run the unit test and confirm security updates and reboot policy are explicit.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/unattended-upgrades-policy.md",
+          "kind": "document",
+          "content": "Unattended upgrades should be configured intentionally so security patches are applied while reboot behavior remains controlled.\n\nPolicy fields:\n\n- security origin\n- automatic reboot setting\n- reboot time\n- package blacklist hook"
+        },
+        {
+          "path": "roles/common/templates/50unattended-upgrades.j2",
+          "content": "Unattended-Upgrade::Allowed-Origins {\n  \"${distro_id}:${distro_codename}-security\";\n};\nUnattended-Upgrade::Automatic-Reboot \"{{ unattended_reboot | default('false') }}\";\nUnattended-Upgrade::Automatic-Reboot-Time \"{{ unattended_reboot_time | default('03:30') }}\";\n"
+        },
+        {
+          "path": "tests/test_unattended_upgrades_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass UnattendedUpgradesTemplateTests(unittest.TestCase):\n    def test_template_limits_updates_to_security_origin_and_reboot_policy(self):\n        content = (ROOT / \"roles/common/templates/50unattended-upgrades.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"${distro_codename}-security\", content)\n        self.assertIn(\"Automatic-Reboot\", content)\n        self.assertIn(\"unattended_reboot_time\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     }
   ]
 }
