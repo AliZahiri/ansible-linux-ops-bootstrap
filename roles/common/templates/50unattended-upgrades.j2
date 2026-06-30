@@ -3,3 +3,9 @@ Unattended-Upgrade::Allowed-Origins {
 };
 Unattended-Upgrade::Automatic-Reboot "{{ unattended_reboot | default('false') }}";
 Unattended-Upgrade::Automatic-Reboot-Time "{{ unattended_reboot_time | default('03:30') }}";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Package-Blacklist {
+{% for package in unattended_package_blacklist | default([]) | unique | sort %}
+  "{{ package }}";
+{% endfor %}
+};

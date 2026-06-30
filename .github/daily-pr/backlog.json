@@ -271,6 +271,50 @@
           "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass UnattendedUpgradesTemplateTests(unittest.TestCase):\n    def test_template_limits_updates_to_security_origin_and_reboot_policy(self):\n        content = (ROOT / \"roles/common/templates/50unattended-upgrades.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"${distro_codename}-security\", content)\n        self.assertIn(\"Automatic-Reboot\", content)\n        self.assertIn(\"unattended_reboot_time\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
         }
       ]
+    },
+    {
+      "id": "sysctl-hardening-policy",
+      "title": "Add sysctl hardening policy",
+      "portfolio_reason": "Shows host bootstrap includes kernel networking hardening.",
+      "test_instructions": "Run the unit test and confirm key sysctl settings are templated.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/sysctl-hardening-policy.md",
+          "kind": "document",
+          "content": "Sysctl hardening should define baseline kernel networking protections for Linux hosts. Settings should be templated and reviewed before production rollout.\n\nBaseline settings:\n\n- disable IP forwarding by default\n- disable source routing\n- enable reverse path filtering\n- ignore ICMP redirects"
+        },
+        {
+          "path": "roles/common/templates/99-hardening.conf.j2",
+          "content": "net.ipv4.ip_forward = 0\nnet.ipv4.conf.all.accept_source_route = 0\nnet.ipv4.conf.all.rp_filter = 1\nnet.ipv4.conf.all.accept_redirects = 0\n"
+        },
+        {
+          "path": "tests/test_sysctl_hardening_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SysctlHardeningTemplateTests(unittest.TestCase):\n    def test_sysctl_template_has_network_hardening_defaults(self):\n        content = (ROOT / \"roles/common/templates/99-hardening.conf.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"net.ipv4.ip_forward = 0\", content)\n        self.assertIn(\"rp_filter = 1\", content)\n        self.assertIn(\"accept_redirects = 0\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
+    },
+    {
+      "id": "motd-ops-banner-policy",
+      "title": "Add MOTD ops banner policy",
+      "portfolio_reason": "Shows operational hosts expose useful login context without leaking secrets.",
+      "test_instructions": "Run the unit test and confirm banner avoids secrets and includes environment ownership.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/motd-ops-banner-policy.md",
+          "kind": "document",
+          "content": "An operations MOTD banner can remind operators which environment they are entering and who owns the host. It should avoid secrets and sensitive topology details.\n\nBanner fields:\n\n- environment name\n- owner/team\n- support contact\n- no secrets"
+        },
+        {
+          "path": "roles/common/templates/motd-ops-banner.j2",
+          "content": "Environment: {{ environment_name | default('unknown') }}\nOwner: {{ platform_owner | default('platform') }}\nSupport: {{ support_contact | default('unset') }}\nDo not paste secrets into shell history or tickets.\n"
+        },
+        {
+          "path": "tests/test_motd_ops_banner_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass MotdOpsBannerTemplateTests(unittest.TestCase):\n    def test_banner_template_has_owner_and_secret_warning(self):\n        content = (ROOT / \"roles/common/templates/motd-ops-banner.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"environment_name\", content)\n        self.assertIn(\"platform_owner\", content)\n        self.assertIn(\"Do not paste secrets\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     }
   ]
 }
