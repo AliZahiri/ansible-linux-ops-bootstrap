@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MANIFEST="${1:?backup manifest path is required}"
+TARGET="${2:?restore target is required}"
+DRY_RUN="${DRY_RUN:-true}"
+
+if [[ ! -f "$MANIFEST" ]]; then
+  echo "backup manifest not found: $MANIFEST" >&2
+  exit 2
+fi
+
+if [[ "$TARGET" == "/" ]]; then
+  echo "refusing to restore into filesystem root" >&2
+  exit 3
+fi
+
+echo "restore drill manifest=$MANIFEST target=$TARGET dry_run=$DRY_RUN"
