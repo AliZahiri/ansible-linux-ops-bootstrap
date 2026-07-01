@@ -315,6 +315,50 @@
           "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass MotdOpsBannerTemplateTests(unittest.TestCase):\n    def test_banner_template_has_owner_and_secret_warning(self):\n        content = (ROOT / \"roles/common/templates/motd-ops-banner.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"environment_name\", content)\n        self.assertIn(\"platform_owner\", content)\n        self.assertIn(\"Do not paste secrets\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
         }
       ]
+    },
+    {
+      "id": "backup-restore-drill-policy",
+      "title": "Add backup restore drill policy",
+      "portfolio_reason": "Shows server bootstrap includes recoverability checks instead of backup creation alone.",
+      "test_instructions": "Run the unit test and confirm the restore drill script validates target and manifest inputs.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/backup-restore-drill-policy.md",
+          "kind": "document",
+          "content": "Backup restore drill policy should verify that backup artifacts can be restored into a safe target. Operators should test restore behavior before relying on backups in incidents.\n\nDrill inputs:\n\n- backup manifest path\n- restore target\n- dry-run flag\n- operator"
+        },
+        {
+          "path": "roles/common/templates/backup-restore-drill.sh.j2",
+          "content": "#!/usr/bin/env bash\nset -euo pipefail\n\nMANIFEST=\"${1:?backup manifest path is required}\"\nTARGET=\"${2:?restore target is required}\"\nDRY_RUN=\"${DRY_RUN:-true}\"\n\nif [[ ! -f \"$MANIFEST\" ]]; then\n  echo \"backup manifest not found: $MANIFEST\" >&2\n  exit 2\nfi\n\nif [[ \"$TARGET\" == \"/\" ]]; then\n  echo \"refusing to restore into filesystem root\" >&2\n  exit 3\nfi\n\necho \"restore drill manifest=$MANIFEST target=$TARGET dry_run=$DRY_RUN\"\n"
+        },
+        {
+          "path": "tests/test_backup_restore_drill_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass BackupRestoreDrillTemplateTests(unittest.TestCase):\n    def test_restore_drill_template_has_guardrails(self):\n        content = (ROOT / \"roles/common/templates/backup-restore-drill.sh.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"backup manifest path is required\", content)\n        self.assertIn(\"refusing to restore into filesystem root\", content)\n        self.assertIn(\"DRY_RUN\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
+    },
+    {
+      "id": "ssh-allowed-users-policy",
+      "title": "Add SSH allowed users policy",
+      "portfolio_reason": "Shows Linux hardening can restrict SSH entry points with an explicit allowlist.",
+      "test_instructions": "Run the unit test and confirm the sshd snippet uses templated allowed users and disables root login.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/ssh-allowed-users-policy.md",
+          "kind": "document",
+          "content": "SSH allowed users policy should keep interactive access explicit and auditable. Host bootstrap should restrict root login and render the allowed operator list from inventory.\n\nPolicy fields:\n\n- allowed SSH users\n- root login disabled\n- password auth setting\n- owner group"
+        },
+        {
+          "path": "roles/common/templates/sshd-allowed-users.conf.j2",
+          "content": "PermitRootLogin no\nPasswordAuthentication {{ ssh_password_authentication | default('no') }}\nAllowUsers {% for user in ssh_allowed_users | default([]) %}{{ user }}{% if not loop.last %} {% endif %}{% endfor %}\n"
+        },
+        {
+          "path": "tests/test_sshd_allowed_users_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SshdAllowedUsersTemplateTests(unittest.TestCase):\n    def test_sshd_allowed_users_template_restricts_login(self):\n        content = (ROOT / \"roles/common/templates/sshd-allowed-users.conf.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"PermitRootLogin no\", content)\n        self.assertIn(\"PasswordAuthentication\", content)\n        self.assertIn(\"ssh_allowed_users\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     }
   ]
 }
