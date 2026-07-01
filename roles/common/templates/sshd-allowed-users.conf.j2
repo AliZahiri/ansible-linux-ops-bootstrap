@@ -1,0 +1,3 @@
+PermitRootLogin no
+PasswordAuthentication {{ ssh_password_authentication | default('no') }}
+AllowUsers {% for user in ssh_allowed_users | default([]) %}{{ user }}{% if not loop.last %} {% endif %}{% endfor %}
