@@ -1,0 +1,2 @@
+# Managed by Ansible. Validate with: visudo -cf %s
+%{{ sudo_admin_group | default('platform-admins') }} ALL=(ALL:ALL) {{ sudo_passwordless | default('ALL') }}
