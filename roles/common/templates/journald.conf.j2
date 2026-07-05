@@ -1,0 +1,5 @@
+[Journal]
+Storage=persistent
+Compress=yes
+SystemMaxUse={{ journald_system_max_use | default('1G') }}
+MaxRetentionSec={{ journald_max_retention_sec | default('14day') }}
