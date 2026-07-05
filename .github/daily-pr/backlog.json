@@ -359,6 +359,50 @@
           "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SshdAllowedUsersTemplateTests(unittest.TestCase):\n    def test_sshd_allowed_users_template_restricts_login(self):\n        content = (ROOT / \"roles/common/templates/sshd-allowed-users.conf.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"PermitRootLogin no\", content)\n        self.assertIn(\"PasswordAuthentication\", content)\n        self.assertIn(\"ssh_allowed_users\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
         }
       ]
+    },
+    {
+      "id": "journald-retention-policy",
+      "title": "Add journald retention policy",
+      "portfolio_reason": "Shows host bootstrap controls log growth while preserving incident evidence.",
+      "test_instructions": "Run the unit test and confirm journald retention and compression are templated.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/journald-retention-policy.md",
+          "kind": "document",
+          "content": "journald retention policy should prevent unbounded log growth and keep enough history for incident response.\n\nPolicy fields:\n\n- system max use\n- max retention time\n- compression enabled\n- persistent storage"
+        },
+        {
+          "path": "roles/common/templates/journald.conf.j2",
+          "content": "[Journal]\nStorage=persistent\nCompress=yes\nSystemMaxUse={{ journald_system_max_use | default('1G') }}\nMaxRetentionSec={{ journald_max_retention_sec | default('14day') }}\n"
+        },
+        {
+          "path": "tests/test_journald_retention_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass JournaldRetentionTemplateTests(unittest.TestCase):\n    def test_journald_template_controls_retention(self):\n        content = (ROOT / \"roles/common/templates/journald.conf.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"Storage=persistent\", content)\n        self.assertIn(\"Compress=yes\", content)\n        self.assertIn(\"SystemMaxUse\", content)\n        self.assertIn(\"MaxRetentionSec\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
+    },
+    {
+      "id": "sudoers-admin-group-policy",
+      "title": "Add sudoers admin group policy",
+      "portfolio_reason": "Shows Linux bootstrap keeps privilege escalation explicit and group based.",
+      "test_instructions": "Run the unit test and confirm sudoers template uses an admin group and validates syntax.",
+      "change_kind": "docs-and-code",
+      "files": [
+        {
+          "path": "docs/daily/sudoers-admin-group-policy.md",
+          "kind": "document",
+          "content": "sudoers admin group policy should keep privilege escalation explicit, auditable, and validated before rollout.\n\nPolicy fields:\n\n- admin group name\n- password requirement\n- visudo validation\n- no user-specific broad grants"
+        },
+        {
+          "path": "roles/common/templates/sudoers-admin-group.j2",
+          "content": "# Managed by Ansible. Validate with: visudo -cf %s\n%{{ sudo_admin_group | default('platform-admins') }} ALL=(ALL:ALL) {{ sudo_passwordless | default('ALL') }}\n"
+        },
+        {
+          "path": "tests/test_sudoers_admin_group_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SudoersAdminGroupTemplateTests(unittest.TestCase):\n    def test_sudoers_template_uses_group_and_visudo_hint(self):\n        content = (ROOT / \"roles/common/templates/sudoers-admin-group.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"visudo -cf\", content)\n        self.assertIn(\"sudo_admin_group\", content)\n        self.assertIn(\"ALL=(ALL:ALL)\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ]
     }
   ]
 }
