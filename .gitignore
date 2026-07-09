@@ -1,6 +1,8 @@
 *.retry
 .env
 vault.yml
+group_vars/vault.yml
+.vault-pass
 *.log
 .DS_Store
 __pycache__/

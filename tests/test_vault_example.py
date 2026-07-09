@@ -11,6 +11,7 @@ class VaultExampleTests(unittest.TestCase):
         content = example.read_text(encoding="utf-8")
 
         self.assertIn("CHANGE_ME_WITH_ANSIBLE_VAULT", content)
+        self.assertIn("vault_example_environment: staging", content)
         self.assertNotIn("password123", content.lower())
 
     def test_vault_example_keeps_secret_names_explicit(self):
@@ -23,6 +24,15 @@ class VaultExampleTests(unittest.TestCase):
 
         self.assertTrue(keys)
         self.assertTrue(all(key.startswith("vault_") for key in keys))
+
+    def test_vault_guidance_documents_password_handling(self):
+        guidance = (ROOT / "docs/daily/ansible-vault-guidance.md").read_text(encoding="utf-8")
+        gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+
+        self.assertIn("--ask-vault-pass", guidance)
+        self.assertIn("ANSIBLE_VAULT_PASSWORD_FILE", guidance)
+        self.assertIn(".vault-pass", gitignore)
+        self.assertIn("group_vars/vault.yml", gitignore)
 
 
 if __name__ == "__main__":

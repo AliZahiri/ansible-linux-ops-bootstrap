@@ -1,4 +1,6 @@
 # Encrypt the real file with ansible-vault before production use.
+vault_example_environment: staging
+vault_vault_file_owner: ops
 vault_postgres_password: CHANGE_ME_WITH_ANSIBLE_VAULT
 vault_deploy_private_key: CHANGE_ME_WITH_ANSIBLE_VAULT
 vault_backup_encryption_key: CHANGE_ME_WITH_ANSIBLE_VAULT

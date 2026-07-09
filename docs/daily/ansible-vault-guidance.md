@@ -12,6 +12,13 @@ Vault usage guidance:
 - avoid putting vault passwords in the repository
 - test playbooks with a non-production vault first
 
+Vault password handling:
+
+- keep the real vault file at `group_vars/vault.yml`
+- encrypt it with `ansible-vault encrypt group_vars/vault.yml`
+- pass the password interactively with `--ask-vault-pass`, or point `ANSIBLE_VAULT_PASSWORD_FILE` at a local file outside Git
+- do not commit `.vault-pass`, CI secrets exports, or decrypted vault files
+
 ## Portfolio Value
 
 Improves the security story for Ansible-based operational automation.
