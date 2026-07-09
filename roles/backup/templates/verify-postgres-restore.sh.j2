@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERIFY_QUERY="{{ backup_restore_verify_query | default('select 1') }}"
+
+: "${POSTGRES_HOST:?POSTGRES_HOST is required}"
+: "${POSTGRES_DB:?POSTGRES_DB is required}"
+: "${POSTGRES_USER:?POSTGRES_USER is required}"
+: "${PGPASSWORD:?PGPASSWORD is required}"
+
+psql \
+  --host "$POSTGRES_HOST" \
+  --username "$POSTGRES_USER" \
+  --dbname "$POSTGRES_DB" \
+  --set ON_ERROR_STOP=1 \
+  --tuples-only \
+  --command "$VERIFY_QUERY"
