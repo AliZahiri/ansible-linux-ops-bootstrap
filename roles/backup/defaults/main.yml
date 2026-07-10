@@ -1,0 +1,6 @@
+---
+backup_dir: /opt/backups
+backup_retention_days: 7
+backup_restore_verify_enabled: false
+backup_restore_verify_query: "select 1"
+backup_restore_verify_connect_timeout_seconds: 5

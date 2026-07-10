@@ -2,6 +2,7 @@
 set -euo pipefail
 
 VERIFY_QUERY="{{ backup_restore_verify_query | default('select 1') }}"
+export PGCONNECT_TIMEOUT="{{ backup_restore_verify_connect_timeout_seconds | default(5) }}"
 
 : "${POSTGRES_HOST:?POSTGRES_HOST is required}"
 : "${POSTGRES_DB:?POSTGRES_DB is required}"
