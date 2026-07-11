@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${BACKUP_ARTIFACT:?BACKUP_ARTIFACT is required}"
+STATUS_FILE="{{ backup_healthcheck_status_file | default('/var/lib/platform-backup/last-success.txt') }}"
+install -d -m 0750 "$(dirname "$STATUS_FILE")"
+printf 'backup_artifact=%s\ncompleted_at=%s\n' "$(basename "$BACKUP_ARTIFACT")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS_FILE"
+chmod 0640 "$STATUS_FILE"
