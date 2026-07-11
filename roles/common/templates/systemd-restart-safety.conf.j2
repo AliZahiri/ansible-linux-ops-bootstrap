@@ -1,0 +1,7 @@
+[Service]
+Restart=on-failure
+RestartSec={{ service_restart_seconds | default(5) }}
+
+[Unit]
+StartLimitIntervalSec={{ service_start_limit_interval_seconds | default(300) }}
+StartLimitBurst={{ service_start_limit_burst | default(5) }}
