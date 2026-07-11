@@ -403,6 +403,50 @@
           "content": "import unittest\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SudoersAdminGroupTemplateTests(unittest.TestCase):\n    def test_sudoers_template_uses_group_and_visudo_hint(self):\n        content = (ROOT / \"roles/common/templates/sudoers-admin-group.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"visudo -cf\", content)\n        self.assertIn(\"sudo_admin_group\", content)\n        self.assertIn(\"ALL=(ALL:ALL)\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
         }
       ]
+    },
+    {
+      "id": "systemd-restart-safety",
+      "title": "Add systemd restart safety drop-in",
+      "files": [
+        {
+          "path": "docs/daily/systemd-restart-safety.md",
+          "kind": "document",
+          "content": "Systemd services should restart predictably without hiding crash loops. A small restart-safety drop-in can bound restart bursts and make failures visible to operators.\n\nRecommended controls:\n\n- restart on failure only\n- short but bounded restart delay\n- start limit interval\n- start limit burst\n- clear tests for generated unit policy"
+        },
+        {
+          "path": "roles/common/templates/systemd-restart-safety.conf.j2",
+          "content": "[Service]\nRestart=on-failure\nRestartSec={{ service_restart_seconds | default(5) }}\n\n[Unit]\nStartLimitIntervalSec={{ service_start_limit_interval_seconds | default(300) }}\nStartLimitBurst={{ service_start_limit_burst | default(5) }}\n"
+        },
+        {
+          "path": "tests/test_systemd_restart_safety_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SystemdRestartSafetyTemplateTests(unittest.TestCase):\n    def test_restart_policy_is_bounded(self):\n        content = (ROOT / \"roles/common/templates/systemd-restart-safety.conf.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"Restart=on-failure\", content)\n        self.assertIn(\"RestartSec\", content)\n        self.assertIn(\"StartLimitIntervalSec\", content)\n        self.assertIn(\"StartLimitBurst\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ],
+      "portfolio_reason": "Adds concrete operational safety around Linux service reliability and crash-loop handling.",
+      "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm restart limits are present in the template.",
+      "change_kind": "docs-and-code"
+    },
+    {
+      "id": "backup-healthcheck-hook",
+      "title": "Add backup healthcheck hook template",
+      "files": [
+        {
+          "path": "docs/daily/backup-healthcheck-hook.md",
+          "kind": "document",
+          "content": "Backup jobs should emit a lightweight health signal after a successful run. This gives monitoring a simple way to detect stale or failing backups without reading large log files.\n\nHook behavior:\n\n- fail when backup artifact path is missing\n- write a timestamped status file\n- include backup artifact name\n- keep output free of credentials"
+        },
+        {
+          "path": "roles/backup/templates/backup-healthcheck.sh.j2",
+          "content": "#!/usr/bin/env bash\nset -euo pipefail\n\n: \"${BACKUP_ARTIFACT:?BACKUP_ARTIFACT is required}\"\nSTATUS_FILE=\"{{ backup_healthcheck_status_file | default('/var/lib/platform-backup/last-success.txt') }}\"\ninstall -d -m 0750 \"$(dirname \"$STATUS_FILE\")\"\nprintf 'backup_artifact=%s\\ncompleted_at=%s\\n' \"$(basename \"$BACKUP_ARTIFACT\")\" \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" > \"$STATUS_FILE\"\nchmod 0640 \"$STATUS_FILE\"\n"
+        },
+        {
+          "path": "tests/test_backup_healthcheck_template.py",
+          "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass BackupHealthcheckTemplateTests(unittest.TestCase):\n    def test_template_requires_artifact_and_writes_status(self):\n        content = (ROOT / \"roles/backup/templates/backup-healthcheck.sh.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"BACKUP_ARTIFACT is required\", content)\n        self.assertIn(\"last-success.txt\", content)\n        self.assertIn(\"completed_at\", content)\n        self.assertNotIn(\"PGPASSWORD\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+        }
+      ],
+      "portfolio_reason": "Strengthens backup operational readiness with a monitorable success signal.",
+      "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the hook requires an artifact and avoids credentials.",
+      "change_kind": "docs-and-code"
     }
   ]
 }
