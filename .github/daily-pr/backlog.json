@@ -446,7 +446,29 @@
       ],
       "portfolio_reason": "Strengthens backup operational readiness with a monitorable success signal.",
       "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the hook requires an artifact and avoids credentials.",
-      "change_kind": "docs-and-code"
-    }
-  ]
+    "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-artifact-permission-policy",
+    "title": "Add backup artifact permission policy",
+    "files": [
+      {
+        "path": "docs/daily/backup-artifact-permission-policy.md",
+        "kind": "document",
+        "content": "Backup artifacts should be created with restrictive ownership and permissions from the start. The bootstrap role can provide a small helper that verifies the backup directory, artifact mode, and group are explicit without placing credentials in scripts.\n\nPolicy controls:\n\n- backup directory mode is 0750\n- backup artifacts use mode 0640\n- owner and group are configurable\n- script fails when artifact path is missing"
+      },
+      {
+        "path": "roles/backup/templates/backup-artifact-permissions.sh.j2",
+        "content": "#!/usr/bin/env bash\nset -euo pipefail\n\n: \"${BACKUP_ARTIFACT:?BACKUP_ARTIFACT is required}\"\nBACKUP_OWNER=\"{{ backup_owner | default('root') }}\"\nBACKUP_GROUP=\"{{ backup_group | default('platform-backup') }}\"\ninstall -d -m 0750 -o \"$BACKUP_OWNER\" -g \"$BACKUP_GROUP\" \"$(dirname \"$BACKUP_ARTIFACT\")\nchown \"$BACKUP_OWNER:$BACKUP_GROUP\" \"$BACKUP_ARTIFACT\"\nchmod 0640 \"$BACKUP_ARTIFACT\"\n"
+      },
+      {
+        "path": "tests/test_backup_artifact_permissions_template.py",
+        "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass BackupArtifactPermissionTemplateTests(unittest.TestCase):\n    def test_template_uses_restrictive_modes_without_credentials(self):\n        content = (ROOT / \"roles/backup/templates/backup-artifact-permissions.sh.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"BACKUP_ARTIFACT is required\", content)\n        self.assertIn(\"-m 0750\", content)\n        self.assertIn(\"chmod 0640\", content)\n        self.assertNotIn(\"PGPASSWORD\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Adds a practical hardening control for backup operations and least-privilege file handling.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm generated backup artifacts use restrictive permissions.",
+    "change_kind": "docs-and-code"
+  }
+]
 }
