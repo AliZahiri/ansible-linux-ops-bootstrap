@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${BACKUP_ARTIFACT:?BACKUP_ARTIFACT is required}"
+BACKUP_OWNER="{{ backup_owner | default('root') }}"
+BACKUP_GROUP="{{ backup_group | default('platform-backup') }}"
+install -d -m 0750 -o "$BACKUP_OWNER" -g "$BACKUP_GROUP" "$(dirname "$BACKUP_ARTIFACT")
+chown "$BACKUP_OWNER:$BACKUP_GROUP" "$BACKUP_ARTIFACT"
+chmod 0640 "$BACKUP_ARTIFACT"
