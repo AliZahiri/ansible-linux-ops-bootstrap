@@ -469,6 +469,28 @@
     "portfolio_reason": "Adds a practical hardening control for backup operations and least-privilege file handling.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm generated backup artifacts use restrictive permissions.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-restore-checksum-policy",
+    "title": "Add backup restore checksum policy",
+    "files": [
+      {
+        "path": "docs/daily/backup-restore-checksum-policy.md",
+        "kind": "document",
+        "content": "Restore operations should verify a recorded checksum before applying a backup artifact. The helper is intentionally small, avoids credentials, and gives operators a clear failure when an artifact changes unexpectedly."
+      },
+      {
+        "path": "roles/backup/templates/verify-backup-checksum.sh.j2",
+        "content": "#!/usr/bin/env bash\nset -euo pipefail\n\n: \"${BACKUP_ARTIFACT:?BACKUP_ARTIFACT is required}\"\n: \"${BACKUP_CHECKSUM_FILE:?BACKUP_CHECKSUM_FILE is required}\"\nsha256sum --check \"$BACKUP_CHECKSUM_FILE\" --status\nprintf 'backup_checksum_verified=%s\\n' \"$(basename \"$BACKUP_ARTIFACT\")\"\n"
+      },
+      {
+        "path": "tests/test_backup_restore_checksum_template.py",
+        "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass BackupRestoreChecksumTemplateTests(unittest.TestCase):\n    def test_template_requires_inputs_and_verifies_sha256(self):\n        content = (ROOT / \"roles/backup/templates/verify-backup-checksum.sh.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"BACKUP_ARTIFACT is required\", content)\n        self.assertIn(\"BACKUP_CHECKSUM_FILE is required\", content)\n        self.assertIn(\"sha256sum --check\", content)\n        self.assertNotIn(\"PGPASSWORD\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Strengthens restore safety with an explicit integrity check before backup data is used.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the checksum helper requires both artifact and checksum file.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
