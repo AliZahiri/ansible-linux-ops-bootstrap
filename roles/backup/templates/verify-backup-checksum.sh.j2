@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${BACKUP_ARTIFACT:?BACKUP_ARTIFACT is required}"
+: "${BACKUP_CHECKSUM_FILE:?BACKUP_CHECKSUM_FILE is required}"
+sha256sum --check "$BACKUP_CHECKSUM_FILE" --status
+printf 'backup_checksum_verified=%s\n' "$(basename "$BACKUP_ARTIFACT")"
