@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${BACKUP_ARTIFACT:?BACKUP_ARTIFACT is required}"
+MAX_AGE_MINUTES="{{ backup_max_age_minutes | default(1440) }}"
+age_minutes=$(( ( $(date +%s) - $(stat -c %Y "$BACKUP_ARTIFACT") ) / 60 ))
+if [ "$age_minutes" -gt "$MAX_AGE_MINUTES" ]; then
+  echo "backup is stale: ${age_minutes}m" >&2
+  exit 1
+fi
+printf 'backup_age_minutes=%s\n' "$age_minutes"
