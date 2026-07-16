@@ -491,6 +491,28 @@
     "portfolio_reason": "Strengthens restore safety with an explicit integrity check before backup data is used.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the checksum helper requires both artifact and checksum file.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-freshness-check-template",
+    "title": "Add backup freshness check template",
+    "files": [
+      {
+        "path": "docs/daily/backup-freshness-check-template.md",
+        "kind": "document",
+        "content": "A successful backup is not enough when the last artifact is stale. This template exposes a lightweight freshness check that monitoring can run without reading backup credentials or parsing application logs."
+      },
+      {
+        "path": "roles/backup/templates/check-backup-freshness.sh.j2",
+        "content": "#!/usr/bin/env bash\nset -euo pipefail\n\n: \"${BACKUP_ARTIFACT:?BACKUP_ARTIFACT is required}\"\nMAX_AGE_MINUTES=\"{{ backup_max_age_minutes | default(1440) }}\"\nage_minutes=$(( ( $(date +%s) - $(stat -c %Y \"$BACKUP_ARTIFACT\") ) / 60 ))\nif [ \"$age_minutes\" -gt \"$MAX_AGE_MINUTES\" ]; then\n  echo \"backup is stale: ${age_minutes}m\" >&2\n  exit 1\nfi\nprintf 'backup_age_minutes=%s\\n' \"$age_minutes\"\n"
+      },
+      {
+        "path": "tests/test_backup_freshness_template.py",
+        "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass BackupFreshnessTemplateTests(unittest.TestCase):\n    def test_template_checks_artifact_age_without_credentials(self):\n        content = (ROOT / \"roles/backup/templates/check-backup-freshness.sh.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"BACKUP_ARTIFACT is required\", content)\n        self.assertIn(\"backup_max_age_minutes\", content)\n        self.assertIn(\"backup is stale\", content)\n        self.assertNotIn(\"PGPASSWORD\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Adds a monitorable safeguard for stale backups and makes operational readiness visible in the repository.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the freshness script requires an artifact and avoids credentials.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
