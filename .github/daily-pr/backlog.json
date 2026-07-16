@@ -513,6 +513,28 @@
     "portfolio_reason": "Adds a monitorable safeguard for stale backups and makes operational readiness visible in the repository.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the freshness script requires an artifact and avoids credentials.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "systemd-resource-limit-template",
+    "title": "Add systemd resource limit template",
+    "files": [
+      {
+        "path": "docs/daily/systemd-resource-limit-template.md",
+        "kind": "document",
+        "content": "Service-level resource limits prevent one workload from exhausting a host during an incident. The template keeps memory and file descriptor limits configurable and visible in version control."
+      },
+      {
+        "path": "roles/common/templates/systemd-resource-limits.conf.j2",
+        "content": "[Service]\nMemoryMax={{ service_memory_max | default('1G') }}\nLimitNOFILE={{ service_limit_nofile | default(65536) }}\nTasksMax={{ service_tasks_max | default(512) }}\n"
+      },
+      {
+        "path": "tests/test_systemd_resource_limits_template.py",
+        "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass SystemdResourceLimitsTemplateTests(unittest.TestCase):\n    def test_template_declares_memory_file_and_task_limits(self):\n        content = (ROOT / \"roles/common/templates/systemd-resource-limits.conf.j2\").read_text(encoding=\"utf-8\")\n\n        self.assertIn(\"MemoryMax\", content)\n        self.assertIn(\"LimitNOFILE\", content)\n        self.assertIn(\"TasksMax\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Shows Linux operational hardening includes service isolation, not only host-level configuration.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm all three resource controls are present.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
