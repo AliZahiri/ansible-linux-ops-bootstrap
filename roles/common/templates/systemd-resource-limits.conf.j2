@@ -1,0 +1,4 @@
+[Service]
+MemoryMax={{ service_memory_max | default('1G') }}
+LimitNOFILE={{ service_limit_nofile | default(65536) }}
+TasksMax={{ service_tasks_max | default(512) }}
