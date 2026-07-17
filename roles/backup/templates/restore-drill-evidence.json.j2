@@ -1,0 +1,7 @@
+{
+  "backup_id": {{ restore_drill_backup_id | to_json }},
+  "checksum_verified": {{ restore_drill_checksum_verified | bool | lower }},
+  "started_at": {{ restore_drill_started_at | to_json }},
+  "completed_at": {{ restore_drill_completed_at | to_json }},
+  "application_verification_passed": {{ restore_drill_application_verification_passed | bool | lower }}
+}
