@@ -535,6 +535,28 @@
     "portfolio_reason": "Shows Linux operational hardening includes service isolation, not only host-level configuration.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm all three resource controls are present.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "restore-drill-evidence-template",
+    "title": "Add restore drill evidence template",
+    "files": [
+      {
+        "path": "docs/daily/restore-drill-evidence-template.md",
+        "kind": "document",
+        "content": "A restore drill should produce machine-readable evidence that identifies the backup artifact, records checksum verification, captures the test window, and states whether application-level validation passed. The evidence contains operational metadata only and no credentials."
+      },
+      {
+        "path": "roles/backup/templates/restore-drill-evidence.json.j2",
+        "content": "{\n  \"backup_id\": {{ restore_drill_backup_id | to_json }},\n  \"checksum_verified\": {{ restore_drill_checksum_verified | bool | lower }},\n  \"started_at\": {{ restore_drill_started_at | to_json }},\n  \"completed_at\": {{ restore_drill_completed_at | to_json }},\n  \"application_verification_passed\": {{ restore_drill_application_verification_passed | bool | lower }}\n}\n"
+      },
+      {
+        "path": "tests/test_restore_drill_evidence_template.py",
+        "content": "import unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\n\n\nclass RestoreDrillEvidenceTemplateTests(unittest.TestCase):\n    def test_template_records_integrity_timing_and_application_checks(self):\n        content = (ROOT / \"roles/backup/templates/restore-drill-evidence.json.j2\").read_text(encoding=\"utf-8\")\n\n        for field in (\"backup_id\", \"checksum_verified\", \"started_at\", \"completed_at\", \"application_verification_passed\"):\n            self.assertIn(f'\"{field}\"', content)\n\n    def test_template_does_not_embed_secret_fields(self):\n        content = (ROOT / \"roles/backup/templates/restore-drill-evidence.json.j2\").read_text(encoding=\"utf-8\").lower()\n        self.assertNotIn(\"password\", content)\n        self.assertNotIn(\"private_key\", content)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Turns restore testing into auditable recovery evidence without exposing production secrets.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the evidence template records integrity, timing, and application verification fields.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
