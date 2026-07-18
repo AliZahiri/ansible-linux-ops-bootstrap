@@ -13,3 +13,21 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m unittest discover -s tests
+
+  ansible-syntax:
+    name: Ansible syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Ansible
+        run: python -m pip install --disable-pip-version-check "ansible-core>=2.18,<2.19"
+      - name: Install required collections
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: Validate playbook syntax against the sample inventory
+        run: |
+          for playbook in playbooks/bootstrap.yml playbooks/monitoring.yml playbooks/backup.yml; do
+            ansible-playbook --syntax-check -i inventories/sample/hosts.ini "$playbook"
+          done
