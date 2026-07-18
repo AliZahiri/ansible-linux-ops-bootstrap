@@ -557,6 +557,28 @@
     "portfolio_reason": "Turns restore testing into auditable recovery evidence without exposing production secrets.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the evidence template records integrity, timing, and application verification fields.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "playbook-role-contract-validator",
+    "title": "Add playbook role contract validator",
+    "files": [
+      {
+        "path": "docs/daily/playbook-role-contract-validator.md",
+        "kind": "document",
+        "content": "Playbooks should reference only local roles with an explicit task entrypoint. A lightweight validator can detect a renamed role or a missing `tasks/main.yml` before an operator discovers it during deployment. The validator operates only on repository files and does not need inventory credentials or host access."
+      },
+      {
+        "path": "scripts/validate_playbook_roles.py",
+        "content": "from __future__ import annotations\n\nfrom pathlib import Path\n\n\ndef missing_role_entrypoints(root: Path, role_names: list[str] | tuple[str, ...]) -> tuple[str, ...]:\n    return tuple(\n        role_name\n        for role_name in role_names\n        if not (root / 'roles' / role_name / 'tasks' / 'main.yml').is_file()\n    )\n\n\ndef role_contract_is_valid(root: Path, role_names: list[str] | tuple[str, ...]) -> bool:\n    return not missing_role_entrypoints(root, role_names)\n"
+      },
+      {
+        "path": "tests/test_validate_playbook_roles.py",
+        "content": "import importlib.util\nimport unittest\nfrom pathlib import Path\n\n\nROOT = Path(__file__).resolve().parents[1]\nSCRIPT_PATH = ROOT / 'scripts/validate_playbook_roles.py'\nSPEC = importlib.util.spec_from_file_location('validate_playbook_roles', SCRIPT_PATH)\nvalidate_playbook_roles = importlib.util.module_from_spec(SPEC)\nSPEC.loader.exec_module(validate_playbook_roles)\n\n\nclass PlaybookRoleContractTests(unittest.TestCase):\n    def test_existing_role_entrypoints_are_valid(self):\n        self.assertTrue(\n            validate_playbook_roles.role_contract_is_valid(\n                ROOT, ('common', 'firewall', 'docker', 'node_exporter', 'backup')\n            )\n        )\n\n    def test_missing_role_entrypoint_is_reported(self):\n        self.assertEqual(\n            validate_playbook_roles.missing_role_entrypoints(ROOT, ('common', 'missing-role')),\n            ('missing-role',),\n        )\n\n\nif __name__ == '__main__':\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Adds deterministic guardrails for local Ansible role wiring, complementing syntax checks with a targeted repository contract.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the validator accepts all current role entrypoints while reporting a missing role.",
+    "change_kind": "docs-and-code"
   }
 ]
 }

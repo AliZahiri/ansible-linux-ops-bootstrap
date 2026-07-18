@@ -64,6 +64,19 @@ monitoring-01 ansible_host=10.10.10.20
 - Test restore paths, not only backup creation.
 - Pin exporter versions and review checksums for stricter environments.
 
+## Validation
+
+CI runs the Python template tests and Ansible syntax checks for every playbook against `inventories/sample/hosts.ini`. Syntax validation installs the declared collections but does not connect to hosts or require production secrets.
+
+To run the Ansible check locally after installing Ansible and the required collections:
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+for playbook in playbooks/bootstrap.yml playbooks/monitoring.yml playbooks/backup.yml; do
+  ansible-playbook --syntax-check -i inventories/sample/hosts.ini "$playbook"
+done
+```
+
 ## Next Iterations
 
 - Add Docker Compose app deployment role
