@@ -579,6 +579,50 @@
     "portfolio_reason": "Adds deterministic guardrails for local Ansible role wiring, complementing syntax checks with a targeted repository contract.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm the validator accepts all current role entrypoints while reporting a missing role.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-rpo-policy-validator",
+    "title": "Add backup RPO policy validator",
+    "files": [
+      {
+        "path": "docs/daily/backup-rpo-policy-validator.md",
+        "kind": "document",
+        "content": "A backup file can exist and still be too old to satisfy the recovery point objective. This validator compares timezone-aware last-success and observation timestamps against an explicit maximum age, rejects clock reversal, and operates on metadata only. It can be used by Ansible checks without reading backup contents or credentials."
+      },
+      {
+        "path": "scripts/validate_backup_rpo.py",
+        "content": "from __future__ import annotations\n\nfrom datetime import datetime\n\n\ndef _parse_timestamp(value: str) -> datetime:\n    parsed = datetime.fromisoformat(value.replace(\"Z\", \"+00:00\"))\n    if parsed.tzinfo is None or parsed.utcoffset() is None:\n        raise ValueError(\"timestamp must include a timezone\")\n    return parsed\n\n\ndef backup_rpo_violations(*, last_success_at: str, observed_at: str, max_age_seconds: int) -> tuple[str, ...]:\n    if not isinstance(max_age_seconds, int) or isinstance(max_age_seconds, bool) or max_age_seconds <= 0:\n        raise ValueError(\"maximum age must be a positive integer\")\n    last_success = _parse_timestamp(last_success_at)\n    observed = _parse_timestamp(observed_at)\n    age_seconds = (observed - last_success).total_seconds()\n    if age_seconds < 0:\n        return (\"backup_timestamp_is_in_the_future\",)\n    if age_seconds > max_age_seconds:\n        return (\"backup_exceeds_recovery_point_objective\",)\n    return ()\n\n\ndef backup_meets_rpo(*, last_success_at: str, observed_at: str, max_age_seconds: int) -> bool:\n    return not backup_rpo_violations(last_success_at=last_success_at, observed_at=observed_at, max_age_seconds=max_age_seconds)\n"
+      },
+      {
+        "path": "tests/test_validate_backup_rpo.py",
+        "content": "import importlib.util\nimport unittest\nfrom pathlib import Path\n\n\nSCRIPT_PATH = Path(__file__).resolve().parents[1] / \"scripts/validate_backup_rpo.py\"\nSPEC = importlib.util.spec_from_file_location(\"validate_backup_rpo\", SCRIPT_PATH)\nvalidate_backup_rpo = importlib.util.module_from_spec(SPEC)\nSPEC.loader.exec_module(validate_backup_rpo)\n\n\nclass BackupRpoPolicyTests(unittest.TestCase):\n    def test_recent_backup_meets_rpo(self):\n        self.assertTrue(validate_backup_rpo.backup_meets_rpo(last_success_at=\"2026-07-21T10:00:00Z\", observed_at=\"2026-07-21T10:30:00Z\", max_age_seconds=3600))\n\n    def test_stale_backup_is_reported(self):\n        self.assertEqual((\"backup_exceeds_recovery_point_objective\",), validate_backup_rpo.backup_rpo_violations(last_success_at=\"2026-07-21T08:00:00Z\", observed_at=\"2026-07-21T10:00:01Z\", max_age_seconds=7200))\n\n    def test_naive_timestamp_is_rejected(self):\n        with self.assertRaises(ValueError):\n            validate_backup_rpo.backup_meets_rpo(last_success_at=\"2026-07-21T10:00:00\", observed_at=\"2026-07-21T10:30:00Z\", max_age_seconds=3600)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Turns backup freshness into an explicit recovery objective gate with deterministic timezone-aware behavior suitable for Linux operations automation.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm recent backups pass while stale, future, or timezone-naive metadata is rejected.",
+    "change_kind": "docs-and-code"
+  },
+  {
+    "id": "restore-rto-evidence-policy",
+    "title": "Add restore RTO evidence policy",
+    "files": [
+      {
+        "path": "docs/daily/restore-rto-evidence-policy.md",
+        "kind": "document",
+        "content": "A successful restore drill should prove both integrity and completion within the recovery time objective. This policy validates the existing machine-readable drill evidence, requires checksum and application verification, and compares timezone-aware start and completion timestamps to a bounded duration. No production inventory or secret data is required."
+      },
+      {
+        "path": "scripts/validate_restore_rto.py",
+        "content": "from __future__ import annotations\n\nfrom datetime import datetime\n\n\ndef _parse_timestamp(value: object) -> datetime | None:\n    if not isinstance(value, str) or not value.strip():\n        return None\n    parsed = datetime.fromisoformat(value.replace(\"Z\", \"+00:00\"))\n    if parsed.tzinfo is None or parsed.utcoffset() is None:\n        return None\n    return parsed\n\n\ndef restore_rto_violations(evidence: dict[str, object], *, max_duration_seconds: int) -> tuple[str, ...]:\n    if not isinstance(max_duration_seconds, int) or isinstance(max_duration_seconds, bool) or max_duration_seconds <= 0:\n        raise ValueError(\"maximum duration must be a positive integer\")\n    violations: list[str] = []\n    if evidence.get(\"checksum_verified\") is not True:\n        violations.append(\"backup_checksum_not_verified\")\n    if evidence.get(\"application_verification_passed\") is not True:\n        violations.append(\"application_verification_not_passed\")\n    started = _parse_timestamp(evidence.get(\"started_at\"))\n    completed = _parse_timestamp(evidence.get(\"completed_at\"))\n    if started is None or completed is None:\n        violations.append(\"timezone_aware_restore_window_is_required\")\n    elif completed < started:\n        violations.append(\"restore_window_is_reversed\")\n    elif (completed - started).total_seconds() > max_duration_seconds:\n        violations.append(\"restore_exceeds_recovery_time_objective\")\n    return tuple(violations)\n\n\ndef restore_meets_rto(evidence: dict[str, object], *, max_duration_seconds: int) -> bool:\n    return not restore_rto_violations(evidence, max_duration_seconds=max_duration_seconds)\n"
+      },
+      {
+        "path": "tests/test_validate_restore_rto.py",
+        "content": "import importlib.util\nimport unittest\nfrom pathlib import Path\n\n\nSCRIPT_PATH = Path(__file__).resolve().parents[1] / \"scripts/validate_restore_rto.py\"\nSPEC = importlib.util.spec_from_file_location(\"validate_restore_rto\", SCRIPT_PATH)\nvalidate_restore_rto = importlib.util.module_from_spec(SPEC)\nSPEC.loader.exec_module(validate_restore_rto)\n\n\nclass RestoreRtoEvidenceTests(unittest.TestCase):\n    def test_verified_restore_within_rto_passes(self):\n        evidence = {\"checksum_verified\": True, \"application_verification_passed\": True, \"started_at\": \"2026-07-21T10:00:00Z\", \"completed_at\": \"2026-07-21T10:20:00Z\"}\n        self.assertTrue(validate_restore_rto.restore_meets_rto(evidence, max_duration_seconds=1800))\n\n    def test_slow_restore_is_reported(self):\n        evidence = {\"checksum_verified\": True, \"application_verification_passed\": True, \"started_at\": \"2026-07-21T10:00:00Z\", \"completed_at\": \"2026-07-21T11:00:01Z\"}\n        self.assertIn(\"restore_exceeds_recovery_time_objective\", validate_restore_rto.restore_rto_violations(evidence, max_duration_seconds=3600))\n\n    def test_integrity_and_application_evidence_are_required(self):\n        violations = validate_restore_rto.restore_rto_violations({\"started_at\": \"2026-07-21T10:00:00Z\", \"completed_at\": \"2026-07-21T10:10:00Z\"}, max_duration_seconds=3600)\n        self.assertIn(\"backup_checksum_not_verified\", violations)\n        self.assertIn(\"application_verification_not_passed\", violations)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Connects restore drill evidence to a measurable recovery time objective while requiring integrity and application-level validation.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm slow, unverified, reversed, or timezone-invalid restore evidence fails the RTO policy.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
