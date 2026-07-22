@@ -623,6 +623,50 @@
     "portfolio_reason": "Connects restore drill evidence to a measurable recovery time objective while requiring integrity and application-level validation.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm slow, unverified, reversed, or timezone-invalid restore evidence fails the RTO policy.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "inventory-host-contract-validator",
+    "title": "Add inventory host contract validator",
+    "files": [
+      {
+        "path": "docs/daily/inventory-host-contract-validator.md",
+        "kind": "document",
+        "content": "Inventory should be validated before Ansible connects to any host. This lightweight INI contract requires hosts to appear under named groups, rejects duplicate aliases, and blocks inline password, private-key, or vault-password variables. It operates on repository text only and complements Ansible syntax checks without requiring production inventory."
+      },
+      {
+        "path": "scripts/validate_inventory_contract.py",
+        "content": "from __future__ import annotations\n\nimport re\n\n\n_SENSITIVE = re.compile(r\"(?:ansible_password|ansible_ssh_pass|ansible_private_key_file|vault_password_file)\\s*=\", re.IGNORECASE)\n\n\ndef inventory_contract_violations(content: str) -> tuple[str, ...]:\n    violations: list[str] = []\n    group = \"\"\n    seen_hosts: set[str] = set()\n    for line_number, raw_line in enumerate(content.splitlines(), start=1):\n        line = raw_line.strip()\n        if not line or line.startswith((\"#\", \";\")):\n            continue\n        if line.startswith(\"[\") and line.endswith(\"]\"):\n            group = line[1:-1].strip()\n            if not group:\n                violations.append(f\"line_{line_number}:inventory_group_name_is_required\")\n            continue\n        if _SENSITIVE.search(line):\n            violations.append(f\"line_{line_number}:inline_sensitive_inventory_variable_is_forbidden\")\n        if not group or group.endswith((\":vars\", \":children\")):\n            continue\n        host = line.split()[0]\n        if host in seen_hosts:\n            violations.append(f\"line_{line_number}:duplicate_host_alias:{host}\")\n        seen_hosts.add(host)\n    if not seen_hosts:\n        violations.append(\"inventory_requires_at_least_one_grouped_host\")\n    return tuple(violations)\n\n\ndef inventory_contract_is_valid(content: str) -> bool:\n    return not inventory_contract_violations(content)\n"
+      },
+      {
+        "path": "tests/test_validate_inventory_contract.py",
+        "content": "import importlib.util\nimport unittest\nfrom pathlib import Path\n\n\nSCRIPT_PATH = Path(__file__).resolve().parents[1] / \"scripts/validate_inventory_contract.py\"\nSPEC = importlib.util.spec_from_file_location(\"validate_inventory_contract\", SCRIPT_PATH)\nvalidator = importlib.util.module_from_spec(SPEC)\nSPEC.loader.exec_module(validator)\n\n\nclass InventoryContractTests(unittest.TestCase):\n    def test_grouped_hosts_without_secrets_pass(self):\n        self.assertTrue(validator.inventory_contract_is_valid(\"[web]\\nweb-1 ansible_host=192.0.2.10\\n\"))\n\n    def test_duplicate_alias_is_reported(self):\n        violations = validator.inventory_contract_violations(\"[web]\\nnode-1\\n[workers]\\nnode-1\\n\")\n        self.assertIn(\"line_4:duplicate_host_alias:node-1\", violations)\n\n    def test_inline_credentials_are_rejected(self):\n        violations = validator.inventory_contract_violations(\"[web]\\nweb-1 ansible_password=secret\\n\")\n        self.assertIn(\"line_2:inline_sensitive_inventory_variable_is_forbidden\", violations)\n\n    def test_empty_inventory_fails(self):\n        self.assertEqual((\"inventory_requires_at_least_one_grouped_host\",), validator.inventory_contract_violations(\"# empty\"))\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Adds a credential-safe inventory preflight that catches structural mistakes and secret-bearing host variables before Ansible reaches a server.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm valid grouped hosts pass while duplicates, empty inventory, and inline sensitive variables fail.",
+    "change_kind": "docs-and-code"
+  },
+  {
+    "id": "vault-variable-reference-policy",
+    "title": "Add vault variable reference policy",
+    "files": [
+      {
+        "path": "docs/daily/vault-variable-reference-policy.md",
+        "kind": "document",
+        "content": "Secret-looking Ansible variables should resolve through vault references rather than plaintext values in ordinary group variables. The helper evaluates already parsed mappings, requires a configurable vault prefix, and reports exact variable names without ever logging their values."
+      },
+      {
+        "path": "scripts/validate_vault_references.py",
+        "content": "from __future__ import annotations\n\n\n_SECRET_SUFFIXES = (\"_password\", \"_token\", \"_secret\", \"_private_key\")\n\n\ndef plaintext_secret_variable_names(variables: dict[str, object], *, vault_prefix: str = \"vault_\") -> tuple[str, ...]:\n    if not vault_prefix:\n        raise ValueError(\"vault prefix is required\")\n    violations: list[str] = []\n    for name, value in variables.items():\n        normalized = name.lower().strip()\n        if not normalized.endswith(_SECRET_SUFFIXES):\n            continue\n        expected_reference = \"{{ \" + vault_prefix + name + \" }}\"\n        if value != expected_reference:\n            violations.append(name)\n    return tuple(sorted(violations))\n\n\ndef vault_references_are_valid(variables: dict[str, object], *, vault_prefix: str = \"vault_\") -> bool:\n    return not plaintext_secret_variable_names(variables, vault_prefix=vault_prefix)\n"
+      },
+      {
+        "path": "tests/test_validate_vault_references.py",
+        "content": "import importlib.util\nimport unittest\nfrom pathlib import Path\n\n\nSCRIPT_PATH = Path(__file__).resolve().parents[1] / \"scripts/validate_vault_references.py\"\nSPEC = importlib.util.spec_from_file_location(\"validate_vault_references\", SCRIPT_PATH)\nvalidator = importlib.util.module_from_spec(SPEC)\nSPEC.loader.exec_module(validator)\n\n\nclass VaultReferenceTests(unittest.TestCase):\n    def test_vault_reference_and_non_secret_values_pass(self):\n        variables = {\"database_password\": \"{{ vault_database_password }}\", \"service_port\": 5432}\n        self.assertTrue(validator.vault_references_are_valid(variables))\n\n    def test_plaintext_secret_names_are_reported_without_values(self):\n        variables = {\"api_token\": \"do-not-log\", \"database_password\": \"plaintext\"}\n        self.assertEqual((\"api_token\", \"database_password\"), validator.plaintext_secret_variable_names(variables))\n\n    def test_empty_prefix_is_rejected(self):\n        with self.assertRaises(ValueError):\n            validator.vault_references_are_valid({}, vault_prefix=\"\")\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Adds a deterministic Ansible Vault hygiene control that reports risky variable names without exposing or parsing secret values.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm vault references pass, plaintext secret variables are named but values are never returned, and invalid policy configuration fails.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
