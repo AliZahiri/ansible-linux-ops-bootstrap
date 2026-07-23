@@ -667,6 +667,50 @@
     "portfolio_reason": "Adds a deterministic Ansible Vault hygiene control that reports risky variable names without exposing or parsing secret values.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm vault references pass, plaintext secret variables are named but values are never returned, and invalid policy configuration fails.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "linux-ops-preflight-report",
+    "title": "Add Linux operations preflight report",
+    "files": [
+      {
+        "path": "docs/daily/linux-ops-preflight-report.md",
+        "kind": "document",
+        "content": "Before an operator runs a playbook, repository-local inventory structure, vault references, and role entrypoints should be evaluated together. This preflight returns only violation identifiers and variable names; it never emits secret values or contacts managed hosts."
+      },
+      {
+        "path": "scripts/linux_ops_preflight.py",
+        "content": "from __future__ import annotations\n\nfrom pathlib import Path\n\nfrom scripts.validate_inventory_contract import inventory_contract_violations\nfrom scripts.validate_playbook_roles import missing_role_entrypoints\nfrom scripts.validate_vault_references import plaintext_secret_variable_names\n\n\ndef linux_ops_preflight(*, root: Path, inventory_content: str, variables: dict[str, object], role_names: list[str] | tuple[str, ...]) -> dict[str, tuple[str, ...]]:\n    return {\"inventory\": inventory_contract_violations(inventory_content), \"vault_references\": plaintext_secret_variable_names(variables), \"role_entrypoints\": missing_role_entrypoints(root, role_names)}\n\n\ndef linux_ops_preflight_is_ready(**inputs: object) -> bool:\n    return not any(linux_ops_preflight(**inputs).values())\n"
+      },
+      {
+        "path": "tests/test_linux_ops_preflight.py",
+        "content": "import tempfile\nimport unittest\nfrom pathlib import Path\n\nfrom scripts.linux_ops_preflight import linux_ops_preflight, linux_ops_preflight_is_ready\n\n\nclass LinuxOpsPreflightTests(unittest.TestCase):\n    def test_valid_inventory_vault_reference_and_role_pass(self):\n        with tempfile.TemporaryDirectory() as tmpdir:\n            root = Path(tmpdir)\n            (root / \"roles/common/tasks\").mkdir(parents=True)\n            (root / \"roles/common/tasks/main.yml\").write_text(\"---\\n\", encoding=\"utf-8\")\n            self.assertTrue(linux_ops_preflight_is_ready(root=root, inventory_content=\"[web]\\nweb-1\\n\", variables={\"database_password\": \"{{ vault_database_password }}\"}, role_names=[\"common\"]))\n\n    def test_failures_are_partitioned_without_secret_values(self):\n        report = linux_ops_preflight(root=Path(\"/missing\"), inventory_content=\"# empty\", variables={\"api_token\": \"do-not-return\"}, role_names=[\"missing\"] )\n        self.assertIn(\"inventory_requires_at_least_one_grouped_host\", report[\"inventory\"])\n        self.assertEqual((\"api_token\",), report[\"vault_references\"])\n        self.assertEqual((\"missing\",), report[\"role_entrypoints\"])\n        self.assertNotIn(\"do-not-return\", repr(report))\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Connects inventory, Vault, and role validation into a credential-safe operator preflight that runs before host access.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm valid repository contracts pass while failures are partitioned without returning secret values.",
+    "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-recovery-evidence-gate",
+    "title": "Add backup recovery evidence gate",
+    "files": [
+      {
+        "path": "docs/daily/backup-recovery-evidence-gate.md",
+        "kind": "document",
+        "content": "Recovery readiness requires both a recent successful backup and a verified restore completed within RTO. This aggregate evidence gate connects the existing RPO and restore policies, requires a stable backup identifier, and returns machine-readable violations without inspecting backup contents."
+      },
+      {
+        "path": "scripts/validate_recovery_evidence.py",
+        "content": "from __future__ import annotations\n\nfrom scripts.validate_backup_rpo import backup_rpo_violations\nfrom scripts.validate_restore_rto import restore_rto_violations\n\n\ndef recovery_evidence_violations(*, evidence: dict[str, object], observed_at: str, max_age_seconds: int, max_duration_seconds: int) -> tuple[str, ...]:\n    violations: list[str] = []\n    if not str(evidence.get(\"backup_id\", \"\")).strip():\n        violations.append(\"backup_identifier_is_required\")\n    last_success_at = evidence.get(\"backup_completed_at\")\n    if not isinstance(last_success_at, str):\n        violations.append(\"backup_completion_timestamp_is_required\")\n    else:\n        violations.extend(backup_rpo_violations(last_success_at=last_success_at, observed_at=observed_at, max_age_seconds=max_age_seconds))\n    violations.extend(restore_rto_violations(evidence, max_duration_seconds=max_duration_seconds))\n    return tuple(violations)\n\n\ndef recovery_evidence_is_ready(**inputs: object) -> bool:\n    return not recovery_evidence_violations(**inputs)\n"
+      },
+      {
+        "path": "tests/test_validate_recovery_evidence.py",
+        "content": "import unittest\n\nfrom scripts.validate_recovery_evidence import recovery_evidence_is_ready, recovery_evidence_violations\n\n\ndef evidence():\n    return {\"backup_id\": \"backup-42\", \"backup_completed_at\": \"2026-07-23T09:00:00Z\", \"checksum_verified\": True, \"application_verification_passed\": True, \"started_at\": \"2026-07-23T09:10:00Z\", \"completed_at\": \"2026-07-23T09:20:00Z\"}\n\n\nclass RecoveryEvidenceGateTests(unittest.TestCase):\n    def test_recent_verified_restore_within_rto_passes(self):\n        self.assertTrue(recovery_evidence_is_ready(evidence=evidence(), observed_at=\"2026-07-23T10:00:00Z\", max_age_seconds=7200, max_duration_seconds=1800))\n\n    def test_missing_identity_stale_backup_and_slow_restore_are_combined(self):\n        invalid = evidence()\n        invalid[\"backup_id\"] = \"\"\n        invalid[\"completed_at\"] = \"2026-07-23T11:00:00Z\"\n        violations = recovery_evidence_violations(evidence=invalid, observed_at=\"2026-07-23T12:00:00Z\", max_age_seconds=3600, max_duration_seconds=1800)\n        self.assertIn(\"backup_identifier_is_required\", violations)\n        self.assertIn(\"backup_exceeds_recovery_point_objective\", violations)\n        self.assertIn(\"restore_exceeds_recovery_time_objective\", violations)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Turns backup freshness and restore-drill evidence into one measurable recovery readiness decision.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm RPO, RTO, identity, checksum, and application verification failures remain visible.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
