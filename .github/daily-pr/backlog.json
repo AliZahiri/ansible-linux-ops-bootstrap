@@ -711,6 +711,50 @@
     "portfolio_reason": "Turns backup freshness and restore-drill evidence into one measurable recovery readiness decision.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm RPO, RTO, identity, checksum, and application verification failures remain visible.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "ansible-idempotency-report-gate",
+    "title": "Add Ansible idempotency report gate",
+    "files": [
+      {
+        "path": "docs/daily/ansible-idempotency-report-gate.md",
+        "kind": "document",
+        "content": "An idempotency claim should be backed by two successful runs against the same host set. This deterministic gate accepts Ansible recap metadata, allows expected changes during the first run, and requires zero changes during the verification run. It rejects missing hosts, failed or unreachable results, negative or non-integer counters, and host-set drift without contacting managed systems or reading credentials."
+      },
+      {
+        "path": "scripts/validate_idempotency_report.py",
+        "content": "from __future__ import annotations\n\n\n_RECAP_METRICS = (\"changed\", \"failed\", \"unreachable\")\n\n\ndef _recap_violations(label: str, recap: dict[str, object]) -> list[str]:\n    if not recap:\n        return [f\"{label}:recap_is_required\"]\n    violations: list[str] = []\n    for host in sorted(recap):\n        metrics = recap[host]\n        if not isinstance(metrics, dict):\n            violations.append(f\"{label}:{host}:metrics_must_be_an_object\")\n            continue\n        for metric in _RECAP_METRICS:\n            value = metrics.get(metric)\n            if not isinstance(value, int) or isinstance(value, bool) or value < 0:\n                violations.append(f\"{label}:{host}:{metric}_must_be_a_non_negative_integer\")\n            elif metric in {\"failed\", \"unreachable\"} and value:\n                violations.append(f\"{label}:{host}:{metric}_must_be_zero\")\n            elif label == \"verification\" and metric == \"changed\" and value:\n                violations.append(f\"{label}:{host}:changed_must_be_zero\")\n    return violations\n\n\ndef idempotency_violations(*, first_run: dict[str, object], verification_run: dict[str, object]) -> tuple[str, ...]:\n    violations = _recap_violations(\"first\", first_run)\n    violations.extend(_recap_violations(\"verification\", verification_run))\n    if first_run and verification_run and set(first_run) != set(verification_run):\n        violations.append(\"run_host_sets_must_match\")\n    return tuple(violations)\n\n\ndef idempotency_is_proven(*, first_run: dict[str, object], verification_run: dict[str, object]) -> bool:\n    return not idempotency_violations(first_run=first_run, verification_run=verification_run)\n"
+      },
+      {
+        "path": "tests/test_validate_idempotency_report.py",
+        "content": "import unittest\n\nfrom scripts.validate_idempotency_report import idempotency_is_proven, idempotency_violations\n\n\nclass IdempotencyReportGateTests(unittest.TestCase):\n    def test_first_run_changes_and_zero_change_verification_pass(self):\n        first = {\"web-1\": {\"changed\": 4, \"failed\": 0, \"unreachable\": 0}}\n        verification = {\"web-1\": {\"changed\": 0, \"failed\": 0, \"unreachable\": 0}}\n\n        self.assertTrue(idempotency_is_proven(first_run=first, verification_run=verification))\n\n    def test_verification_change_and_failure_are_reported(self):\n        recap = {\"web-1\": {\"changed\": 1, \"failed\": 1, \"unreachable\": 0}}\n\n        violations = idempotency_violations(first_run=recap, verification_run=recap)\n\n        self.assertIn(\"first:web-1:failed_must_be_zero\", violations)\n        self.assertIn(\"verification:web-1:changed_must_be_zero\", violations)\n        self.assertIn(\"verification:web-1:failed_must_be_zero\", violations)\n\n    def test_host_drift_and_invalid_metric_are_rejected(self):\n        first = {\"web-1\": {\"changed\": 0, \"failed\": 0, \"unreachable\": 0}}\n        verification = {\"web-2\": {\"changed\": False, \"failed\": 0, \"unreachable\": 0}}\n\n        violations = idempotency_violations(first_run=first, verification_run=verification)\n\n        self.assertIn(\"run_host_sets_must_match\", violations)\n        self.assertIn(\"verification:web-2:changed_must_be_a_non_negative_integer\", violations)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Turns Ansible idempotency from a documentation claim into a machine-readable two-run evidence gate with explicit failure semantics.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm first-run changes are allowed while verification changes, failures, unreachable hosts, invalid counters, and host-set drift fail.",
+    "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-artifact-manifest-contract",
+    "title": "Add backup artifact manifest contract",
+    "files": [
+      {
+        "path": "docs/daily/backup-artifact-manifest-contract.md",
+        "kind": "document",
+        "content": "Backup and restore checks need a stable metadata contract before they can verify an artifact. This validator requires a bounded backup identifier, a path-free artifact name, a timezone-aware creation timestamp, a positive byte size, and a complete SHA-256 digest. It validates metadata only, never opens the backup artifact, and returns field-level violations without exposing backup contents."
+      },
+      {
+        "path": "scripts/validate_backup_manifest.py",
+        "content": "from __future__ import annotations\n\nfrom datetime import datetime\nimport re\n\n\n_IDENTIFIER = re.compile(r\"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\Z\")\n_SHA256 = re.compile(r\"[a-fA-F0-9]{64}\\Z\")\n\n\ndef _is_timezone_aware(value: object) -> bool:\n    if not isinstance(value, str) or not value.strip():\n        return False\n    try:\n        parsed = datetime.fromisoformat(value.replace(\"Z\", \"+00:00\"))\n    except ValueError:\n        return False\n    return parsed.tzinfo is not None and parsed.utcoffset() is not None\n\n\ndef backup_manifest_violations(manifest: dict[str, object]) -> tuple[str, ...]:\n    violations: list[str] = []\n    backup_id = manifest.get(\"backup_id\")\n    if not isinstance(backup_id, str) or not _IDENTIFIER.fullmatch(backup_id):\n        violations.append(\"backup_id_is_invalid\")\n    artifact_name = manifest.get(\"artifact_name\")\n    if not isinstance(artifact_name, str) or not artifact_name.strip() or \"/\" in artifact_name or \"\\\\\" in artifact_name:\n        violations.append(\"artifact_name_must_not_contain_a_path\")\n    if not _is_timezone_aware(manifest.get(\"created_at\")):\n        violations.append(\"created_at_must_be_timezone_aware\")\n    size_bytes = manifest.get(\"size_bytes\")\n    if not isinstance(size_bytes, int) or isinstance(size_bytes, bool) or size_bytes <= 0:\n        violations.append(\"size_bytes_must_be_a_positive_integer\")\n    digest = manifest.get(\"sha256\")\n    if not isinstance(digest, str) or not _SHA256.fullmatch(digest):\n        violations.append(\"sha256_must_be_a_complete_digest\")\n    return tuple(violations)\n\n\ndef backup_manifest_is_valid(manifest: dict[str, object]) -> bool:\n    return not backup_manifest_violations(manifest)\n"
+      },
+      {
+        "path": "tests/test_validate_backup_manifest.py",
+        "content": "import unittest\n\nfrom scripts.validate_backup_manifest import backup_manifest_is_valid, backup_manifest_violations\n\n\ndef valid_manifest():\n    return {\"backup_id\": \"postgres-20260724T120000Z\", \"artifact_name\": \"postgres.sql.gz\", \"created_at\": \"2026-07-24T12:00:00Z\", \"size_bytes\": 4096, \"sha256\": \"a\" * 64}\n\n\nclass BackupArtifactManifestTests(unittest.TestCase):\n    def test_complete_manifest_passes(self):\n        self.assertTrue(backup_manifest_is_valid(valid_manifest()))\n\n    def test_path_timestamp_size_and_digest_failures_are_partitioned(self):\n        manifest = valid_manifest()\n        manifest.update({\"artifact_name\": \"../postgres.sql.gz\", \"created_at\": \"2026-07-24T12:00:00\", \"size_bytes\": True, \"sha256\": \"short\"})\n\n        violations = backup_manifest_violations(manifest)\n\n        self.assertIn(\"artifact_name_must_not_contain_a_path\", violations)\n        self.assertIn(\"created_at_must_be_timezone_aware\", violations)\n        self.assertIn(\"size_bytes_must_be_a_positive_integer\", violations)\n        self.assertIn(\"sha256_must_be_a_complete_digest\", violations)\n\n    def test_unbounded_or_unsafe_backup_identifier_fails(self):\n        manifest = valid_manifest()\n        manifest[\"backup_id\"] = \"../../outside\"\n\n        self.assertEqual((\"backup_id_is_invalid\",), backup_manifest_violations(manifest))\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Adds a deterministic, content-safe metadata boundary that later checksum, retention, and restore automation can consume consistently.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm complete manifests pass while unsafe identifiers, path-bearing names, naive timestamps, non-positive sizes, and incomplete digests fail.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
