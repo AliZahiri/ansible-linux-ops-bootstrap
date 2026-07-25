@@ -755,6 +755,50 @@
     "portfolio_reason": "Adds a deterministic, content-safe metadata boundary that later checksum, retention, and restore automation can consume consistently.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm complete manifests pass while unsafe identifiers, path-bearing names, naive timestamps, non-positive sizes, and incomplete digests fail.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-artifact-observation-gate",
+    "title": "Add backup artifact observation gate",
+    "files": [
+      {
+        "path": "docs/daily/backup-artifact-observation-gate.md",
+        "kind": "document",
+        "content": "A syntactically valid backup manifest does not prove that the observed artifact matches it. This metadata-only gate composes the existing manifest contract with independently observed byte size and SHA-256 values, reports manifest and observation failures separately, and rejects size or digest mismatches without opening the backup or exposing its contents."
+      },
+      {
+        "path": "scripts/validate_backup_observation.py",
+        "content": "from __future__ import annotations\n\nimport re\n\nfrom scripts.validate_backup_manifest import backup_manifest_violations\n\n\n_SHA256 = re.compile(r\"[a-fA-F0-9]{64}\\Z\")\n\n\ndef backup_observation_violations(*, manifest: dict[str, object], observed_size_bytes: object, observed_sha256: object) -> tuple[str, ...]:\n    violations = [f\"manifest:{item}\" for item in backup_manifest_violations(manifest)]\n    valid_size = isinstance(observed_size_bytes, int) and not isinstance(observed_size_bytes, bool) and observed_size_bytes > 0\n    if not valid_size:\n        violations.append(\"observed_size_bytes_must_be_a_positive_integer\")\n    elif isinstance(manifest.get(\"size_bytes\"), int) and observed_size_bytes != manifest[\"size_bytes\"]:\n        violations.append(\"observed_size_does_not_match_manifest\")\n    valid_digest = isinstance(observed_sha256, str) and _SHA256.fullmatch(observed_sha256) is not None\n    if not valid_digest:\n        violations.append(\"observed_sha256_must_be_a_complete_digest\")\n    elif isinstance(manifest.get(\"sha256\"), str) and observed_sha256.lower() != manifest[\"sha256\"].lower():\n        violations.append(\"observed_sha256_does_not_match_manifest\")\n    return tuple(violations)\n\n\ndef backup_observation_matches_manifest(**inputs: object) -> bool:\n    return not backup_observation_violations(**inputs)\n"
+      },
+      {
+        "path": "tests/test_validate_backup_observation.py",
+        "content": "import unittest\n\nfrom scripts.validate_backup_observation import backup_observation_matches_manifest, backup_observation_violations\n\n\ndef manifest():\n    return {\"backup_id\": \"postgres-20260725T120000Z\", \"artifact_name\": \"postgres.sql.gz\", \"created_at\": \"2026-07-25T12:00:00Z\", \"size_bytes\": 4096, \"sha256\": \"a\" * 64}\n\n\nclass BackupArtifactObservationTests(unittest.TestCase):\n    def test_matching_observation_passes(self):\n        self.assertTrue(backup_observation_matches_manifest(manifest=manifest(), observed_size_bytes=4096, observed_sha256=\"A\" * 64))\n\n    def test_size_and_digest_mismatches_are_reported(self):\n        violations = backup_observation_violations(manifest=manifest(), observed_size_bytes=2048, observed_sha256=\"b\" * 64)\n        self.assertIn(\"observed_size_does_not_match_manifest\", violations)\n        self.assertIn(\"observed_sha256_does_not_match_manifest\", violations)\n\n    def test_manifest_and_observation_shape_failures_remain_separate(self):\n        invalid = manifest()\n        invalid[\"backup_id\"] = \"../unsafe\"\n        violations = backup_observation_violations(manifest=invalid, observed_size_bytes=True, observed_sha256=\"short\")\n        self.assertIn(\"manifest:backup_id_is_invalid\", violations)\n        self.assertIn(\"observed_size_bytes_must_be_a_positive_integer\", violations)\n        self.assertIn(\"observed_sha256_must_be_a_complete_digest\", violations)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Extends the backup metadata contract into deterministic artifact identity evidence by comparing independent size and checksum observations.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm matching observations pass while invalid manifests, boolean/non-positive sizes, incomplete digests, and size or checksum mismatches fail independently.",
+    "change_kind": "docs-and-code"
+  },
+  {
+    "id": "ansible-handler-notification-contract",
+    "title": "Add Ansible handler notification contract",
+    "files": [
+      {
+        "path": "docs/daily/ansible-handler-notification-contract.md",
+        "kind": "document",
+        "content": "Ansible accepts notification names as strings, so a renamed or misspelled handler can silently break the intended restart or reload path until runtime. This dependency-free validator operates on already parsed task notifications and handler names, rejects blank or duplicate handler definitions, and reports every undefined notification using exact Ansible case-sensitive matching."
+      },
+      {
+        "path": "scripts/validate_handler_notifications.py",
+        "content": "from __future__ import annotations\n\n\ndef handler_notification_violations(*, notifications: list[str] | tuple[str, ...], handlers: list[str] | tuple[str, ...]) -> tuple[str, ...]:\n    violations: list[str] = []\n    normalized_handlers = [str(name).strip() for name in handlers]\n    normalized_notifications = [str(name).strip() for name in notifications]\n    if any(not name for name in normalized_handlers):\n        violations.append(\"blank_handler_name_is_forbidden\")\n    if any(not name for name in normalized_notifications):\n        violations.append(\"blank_notification_name_is_forbidden\")\n    seen: set[str] = set()\n    for name in normalized_handlers:\n        if name and name in seen:\n            violations.append(f\"duplicate_handler_definition:{name}\")\n        seen.add(name)\n    defined = {name for name in normalized_handlers if name}\n    for name in sorted({name for name in normalized_notifications if name} - defined):\n        violations.append(f\"undefined_handler_notification:{name}\")\n    return tuple(violations)\n\n\ndef handler_notifications_are_valid(*, notifications: list[str] | tuple[str, ...], handlers: list[str] | tuple[str, ...]) -> bool:\n    return not handler_notification_violations(notifications=notifications, handlers=handlers)\n"
+      },
+      {
+        "path": "tests/test_validate_handler_notifications.py",
+        "content": "import unittest\n\nfrom scripts.validate_handler_notifications import handler_notification_violations, handler_notifications_are_valid\n\n\nclass HandlerNotificationContractTests(unittest.TestCase):\n    def test_defined_case_sensitive_notifications_pass(self):\n        self.assertTrue(handler_notifications_are_valid(notifications=[\"Restart Docker\", \"Reload Nginx\"], handlers=[\"Restart Docker\", \"Reload Nginx\"]))\n\n    def test_undefined_notifications_are_reported_deterministically(self):\n        violations = handler_notification_violations(notifications=[\"Reload Nginx\", \"Restart Docker\"], handlers=[\"Restart Docker\"])\n        self.assertEqual((\"undefined_handler_notification:Reload Nginx\",), violations)\n\n    def test_blank_duplicate_and_case_mismatched_names_fail(self):\n        violations = handler_notification_violations(notifications=[\"\", \"restart docker\"], handlers=[\"Restart Docker\", \"Restart Docker\", \"\"])\n        self.assertIn(\"blank_handler_name_is_forbidden\", violations)\n        self.assertIn(\"blank_notification_name_is_forbidden\", violations)\n        self.assertIn(\"duplicate_handler_definition:Restart Docker\", violations)\n        self.assertIn(\"undefined_handler_notification:restart docker\", violations)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+      }
+    ],
+    "portfolio_reason": "Adds a deterministic Ansible wiring check that catches broken reload/restart notifications before playbook execution without requiring inventory access.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm defined notifications pass while blank names, duplicate handler definitions, undefined notifications, and case mismatches fail.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
