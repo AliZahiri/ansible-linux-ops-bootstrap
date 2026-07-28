@@ -77,6 +77,12 @@ for playbook in playbooks/bootstrap.yml playbooks/monitoring.yml playbooks/backu
 done
 ```
 
+Parsed task notifications can also be checked against the available handler names:
+
+```bash
+python3 scripts/validate_handler_notifications.py handler-contract.json
+```
+
 ## Next Iterations
 
 - Add Docker Compose app deployment role
