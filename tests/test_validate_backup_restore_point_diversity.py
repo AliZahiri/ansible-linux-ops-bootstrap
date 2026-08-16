@@ -9,7 +9,11 @@ NOW = datetime(2026, 8, 14, 6, 0, tzinfo=timezone.utc)
 
 class BackupRestorePointDiversityGateTests(unittest.TestCase):
     def test_distinct_recent_restore_points_pass(self):
-        points = [{"backup_id": f"backup-{day}", "sha256": chr(96 + day) * 64, "created_at": f"2026-08-{day:02d}T00:00:00Z"} for day in (11, 12, 13)]
+        points = [
+            {"backup_id": "backup-11", "sha256": "a" * 64, "created_at": "2026-08-11T00:00:00Z"},
+            {"backup_id": "backup-12", "sha256": "b" * 64, "created_at": "2026-08-12T00:00:00Z"},
+            {"backup_id": "backup-13", "sha256": "c" * 64, "created_at": "2026-08-13T00:00:00Z"},
+        ]
         self.assertTrue(backup_restore_points_are_diverse(points, now=NOW))
 
     def test_sparse_duplicate_invalid_and_stale_points_fail(self):
