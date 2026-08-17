@@ -1115,6 +1115,18 @@
     "portfolio_reason": "Strengthens backup recovery controls by connecting immutable artifacts to verified integrity and application-level restore evidence.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm evidence without a valid digest, immutable storage, timezone-aware verification, integrity check, or application check fails.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-retention-evidence-gate",
+    "title": "Add backup retention evidence gate",
+    "files": [
+      {"path": "docs/daily/backup-retention-evidence-gate.md", "kind": "document", "content": "Backup retention should be evidenced by distinct restore points across the required daily, weekly, and monthly horizons. This offline gate validates the declared retention tiers, timezone-aware oldest retained timestamps, and a completed retention verification without accessing backup storage."},
+      {"path": "scripts/validate_backup_retention_evidence.py", "content": "from __future__ import annotations\n\nfrom datetime import datetime\n\n\n_REQUIRED_TIERS = frozenset({\"daily\", \"weekly\", \"monthly\"})\n\n\ndef backup_retention_evidence_violations(evidence: dict[str, object]) -> tuple[str, ...]:\n    violations: list[str] = []\n    tiers = evidence.get(\"tiers\")\n    if not isinstance(tiers, dict) or _REQUIRED_TIERS.difference(tiers):\n        return (\"required_retention_tiers_are_missing\",)\n    for tier in sorted(_REQUIRED_TIERS):\n        value = tiers[tier]\n        try:\n            timestamp = datetime.fromisoformat(value.replace(\"Z\", \"+00:00\")) if isinstance(value, str) else None\n        except ValueError:\n            timestamp = None\n        if timestamp is None or timestamp.tzinfo is None or timestamp.utcoffset() is None:\n            violations.append(f\"{tier}_oldest_retained_at_must_be_timezone_aware\")\n    if evidence.get(\"retention_verified\") is not True:\n        violations.append(\"retention_verification_must_pass\")\n    return tuple(violations)\n\n\ndef backup_retention_evidence_is_valid(evidence: dict[str, object]) -> bool:\n    return not backup_retention_evidence_violations(evidence)\n"},
+      {"path": "tests/test_validate_backup_retention_evidence.py", "content": "import unittest\n\nfrom scripts.validate_backup_retention_evidence import backup_retention_evidence_is_valid, backup_retention_evidence_violations\n\n\nclass BackupRetentionEvidenceGateTests(unittest.TestCase):\n    def test_verified_timezone_aware_retention_passes(self):\n        evidence = {\"tiers\": {\"daily\": \"2026-08-16T00:00:00Z\", \"weekly\": \"2026-08-10T00:00:00Z\", \"monthly\": \"2026-07-01T00:00:00Z\"}, \"retention_verified\": True}\n        self.assertTrue(backup_retention_evidence_is_valid(evidence))\n\n    def test_missing_tier_naive_timestamp_and_failed_verification_fail(self):\n        violations = backup_retention_evidence_violations({\"tiers\": {\"daily\": \"2026-08-16T00:00:00\", \"weekly\": \"2026-08-10T00:00:00Z\"}, \"retention_verified\": False})\n        self.assertEqual(violations, (\"required_retention_tiers_are_missing\",))\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"}
+    ],
+    "portfolio_reason": "Makes retention verification part of recovery evidence, complementing existing freshness, integrity, and restore-point diversity controls.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm complete verified daily, weekly, and monthly evidence passes while missing tiers or failed verification fail.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
