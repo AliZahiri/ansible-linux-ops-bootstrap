@@ -1127,6 +1127,18 @@
     "portfolio_reason": "Makes retention verification part of recovery evidence, complementing existing freshness, integrity, and restore-point diversity controls.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm complete verified daily, weekly, and monthly evidence passes while missing tiers or failed verification fail.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "backup-key-rotation-evidence-gate",
+    "title": "Add backup key rotation evidence gate",
+    "files": [
+      {"path": "docs/daily/backup-key-rotation-evidence-gate.md", "kind": "document", "content": "Document an offline contract for proving that backup encryption keys are active, identified, and rotated within policy."},
+      {"path": "scripts/validate_backup_key_rotation_evidence.py", "content": "from __future__ import annotations\n\ndef backup_key_rotation_evidence_violations(evidence: dict[str, object]) -> tuple[str, ...]:\n    return ()\n"},
+      {"path": "tests/test_validate_backup_key_rotation_evidence.py", "content": "import unittest\n\nclass BackupKeyRotationEvidenceTests(unittest.TestCase):\n    def test_placeholder(self):\n        self.assertTrue(True)\n"}
+    ],
+    "portfolio_reason": "Extends backup recovery readiness with auditable encryption-key lifecycle evidence.",
+    "test_instructions": "Run the unit test and expand it to cover missing key identifiers, inactive keys, and stale rotation timestamps.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
