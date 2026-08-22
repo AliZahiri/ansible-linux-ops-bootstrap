@@ -1175,6 +1175,18 @@
     "portfolio_reason": "Adds measurable post-change restart evidence so systemd automation can surface restart storms instead of only declaring configuration success.",
     "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm only active services with bounded restarts and complete observation evidence pass.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "ansible-role-input-contract-gate",
+    "title": "Add Ansible role input contract gate",
+    "files": [
+      {"path": "docs/daily/ansible-role-input-contract-gate.md", "kind": "document", "content": "Validate that role defaults declare non-empty values for required operational inputs before a playbook is applied to a host inventory."},
+      {"path": "scripts/validate_role_input_contract.py", "content": "from __future__ import annotations\n\n\ndef role_input_contract_violations(values: dict[str, object], required: tuple[str, ...]) -> tuple[str, ...]:\n    if not isinstance(values, dict):\n        return (\"role_values_must_be_an_object\",)\n    return tuple(f\"{key}_is_required\" for key in required if not isinstance(values.get(key), str) or not values[key].strip())\n\n\ndef role_input_contract_is_valid(values: dict[str, object], required: tuple[str, ...]) -> bool:\n    return not role_input_contract_violations(values, required)\n"},
+      {"path": "tests/test_validate_role_input_contract.py", "content": "import unittest\n\nfrom scripts.validate_role_input_contract import role_input_contract_is_valid\n\n\nclass RoleInputContractTests(unittest.TestCase):\n    def test_required_role_values_pass_when_declared(self):\n        self.assertTrue(role_input_contract_is_valid({\"backup_user\": \"backup\"}, (\"backup_user\",)))\n\n    def test_blank_required_role_value_fails(self):\n        self.assertFalse(role_input_contract_is_valid({\"backup_user\": \"\"}, (\"backup_user\",)))\n"}
+    ],
+    "portfolio_reason": "Moves role configuration failures earlier, before host execution, while remaining inventory- and credential-free.",
+    "test_instructions": "Run `python3 -m unittest discover -s tests` and confirm blank or absent required role inputs fail deterministically.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
