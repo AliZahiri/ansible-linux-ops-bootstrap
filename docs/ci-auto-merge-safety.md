@@ -10,6 +10,8 @@ Daily portfolio pull requests are eligible for squash merge only after three ind
 
 If a validation job is renamed or added as a merge prerequisite, update `REQUIRED_CHECK_NAMES` in the same pull request. A failed or timed-out gate leaves the PR and linked issue open for diagnosis; it does not bypass validation.
 
+The independent test rerun uses a detached temporary Git worktree at the fetched PR head. The auto-merge checkout remains on its original commit, and an exit trap removes the temporary worktree after success or failure. This keeps PR code and generated test artifacts isolated from the merge-control workspace.
+
 ## Backlog validation
 
 Before creating an issue or branch, the daily generator validates the complete backlog as one contract. Task IDs and target paths must be unique, required metadata must be present, and queued Python source must compile. The compile check parses source without importing or executing it, so a malformed task fails locally without running untrusted backlog content or leaving partial GitHub resources behind.
