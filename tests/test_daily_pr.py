@@ -75,8 +75,26 @@ class DailyPrTests(unittest.TestCase):
                 {**sample_task(), "id": "other"},
             ]
 
-            with self.assertRaisesRegex(ValueError, "duplicate task file path: docs/sample.md"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "duplicate incomplete task file path: docs/sample.md",
+            ):
                 daily_pr.load_tasks(self.write_backlog(tmpdir, tasks))
+
+    def test_load_tasks_allows_completed_task_path_to_be_evolved(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            target = root / "docs/sample.md"
+            target.parent.mkdir(parents=True)
+            target.write_text(daily_pr.task_marker("sample"), encoding="utf-8")
+            tasks = [
+                sample_task(),
+                {**sample_task(), "id": "evolved"},
+            ]
+
+            loaded = daily_pr.load_tasks(self.write_backlog(tmpdir, tasks))
+
+            self.assertEqual([task["id"] for task in loaded], ["sample", "evolved"])
 
     def test_load_tasks_compile_checks_python_without_executing_it(self):
         with tempfile.TemporaryDirectory() as tmpdir:
