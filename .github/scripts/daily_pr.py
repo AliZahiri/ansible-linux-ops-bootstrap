@@ -19,8 +19,11 @@ def load_tasks(backlog_path: Path) -> list[dict[str, str]]:
     if not isinstance(tasks, list):
         raise ValueError("backlog tasks must be a list")
 
+    root = backlog_path.parent
+    if root.name == "daily-pr" and root.parent.name == ".github":
+        root = root.parent.parent
     seen_task_ids: set[str] = set()
-    seen_paths: set[str] = set()
+    seen_incomplete_paths: set[str] = set()
     for task in tasks:
         if not isinstance(task, dict):
             raise ValueError("backlog task entries must be objects")
@@ -33,11 +36,9 @@ def load_tasks(backlog_path: Path) -> list[dict[str, str]]:
         for key in ("title", "portfolio_reason", "test_instructions", "change_kind"):
             if not task.get(key):
                 raise ValueError(f"task {task_id} is missing {key}")
-        for item in task_files(task):
+        files = task_files(task)
+        for item in files:
             path = item["path"]
-            if path in seen_paths:
-                raise ValueError(f"duplicate task file path: {path}")
-            seen_paths.add(path)
             if path.endswith(".py"):
                 try:
                     compile(item["content"], path, "exec")
@@ -45,6 +46,12 @@ def load_tasks(backlog_path: Path) -> list[dict[str, str]]:
                     raise ValueError(
                         f"task {task_id} has invalid Python in {path}: {error.msg}"
                     ) from error
+        if not is_task_complete(root, task):
+            for item in files:
+                path = item["path"]
+                if path in seen_incomplete_paths:
+                    raise ValueError(f"duplicate incomplete task file path: {path}")
+                seen_incomplete_paths.add(path)
     return tasks
 
 
