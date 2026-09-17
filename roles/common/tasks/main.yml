@@ -17,6 +17,73 @@
     shell: /bin/bash
     create_home: true
 
+- name: Apply lockout-safe SSH hardening
+  when: ssh_hardening_enabled | bool
+  block:
+    - name: Validate SSH hardening policy inputs
+      ansible.builtin.assert:
+        that:
+          - ssh_password_authentication == "no"
+          - ssh_allowed_users is sequence
+          - ssh_allowed_users is not string
+          - ssh_allowed_users | length > 0
+          - ops_user in ssh_allowed_users
+          - ssh_authorized_keys_path | length > 0
+        fail_msg: >-
+          SSH hardening requires password authentication to remain disabled,
+          a non-empty allowed-user list containing ops_user, and an authorized
+          keys path for the operations user.
+
+    - name: Inspect operations user authorized keys
+      ansible.builtin.stat:
+        path: "{{ ssh_authorized_keys_path }}"
+      register: ops_authorized_keys
+
+    - name: Require a provisioned operations SSH key before hardening
+      ansible.builtin.assert:
+        that:
+          - ops_authorized_keys.stat.exists | default(false)
+          - ops_authorized_keys.stat.isreg | default(false)
+          - (ops_authorized_keys.stat.size | default(0) | int) > 0
+        fail_msg: >-
+          Refusing to harden SSH because the operations user's authorized_keys
+          file is missing, is not a regular file, or is empty.
+
+    - name: Verify sshd loads the managed drop-in directory
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/grep
+          - -Eq
+          - '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config.d/\*\.conf([[:space:]]|$)'
+          - /etc/ssh/sshd_config
+      changed_when: false
+
+    - name: Ensure SSH configuration drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install validated SSH hardening drop-ins
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "/etc/ssh/sshd_config.d/{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+        validate: "/usr/sbin/sshd -t -f %s"
+      loop:
+        - src: sshd-hardening.conf.j2
+          dest: 50-platform-hardening.conf
+        - src: sshd-allowed-users.conf.j2
+          dest: 60-platform-allowed-users.conf
+      loop_control:
+        label: "{{ item.dest }}"
+      notify: Validate and reload SSH
+
 - name: Enable unattended upgrades
   ansible.builtin.systemd:
     name: unattended-upgrades

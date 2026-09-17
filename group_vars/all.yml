@@ -3,7 +3,16 @@ timezone: UTC
 ops_user: ops
 ops_groups:
   - sudo
-  - docker
+
+# Enable only after the operations user's public key has been provisioned.
+# The role refuses to disable password authentication when authorized_keys is
+# missing or empty, which keeps the default bootstrap path lockout-safe.
+ssh_hardening_enabled: false
+ssh_allowed_users:
+  - "{{ ops_user }}"
+ssh_password_authentication: "no"
+ssh_service_name: ssh
+ssh_authorized_keys_path: "/home/{{ ops_user }}/.ssh/authorized_keys"
 
 base_packages:
   - ca-certificates

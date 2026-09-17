@@ -45,6 +45,26 @@ ansible-playbook -i inventories/production.ini playbooks/monitoring.yml
 ansible-playbook -i inventories/production.ini playbooks/backup.yml
 ```
 
+## Lockout-Safe SSH Hardening
+
+SSH hardening is disabled by default. Provision and verify a public key for the
+operations user first, then enable the policy in inventory variables:
+
+```yaml
+ssh_hardening_enabled: true
+ssh_allowed_users:
+  - ops
+ssh_authorized_keys_path: /home/ops/.ssh/authorized_keys
+```
+
+When enabled, the common role refuses to continue unless the allowed-user list
+contains `ops_user` and the configured `authorized_keys` file exists, is a
+regular file, and is non-empty. It also verifies that the host's primary
+configuration includes `/etc/ssh/sshd_config.d/*.conf`. Each drop-in is
+syntax-checked before install; the complete SSH configuration must also pass
+`sshd -t` before the service is reloaded. Keep a verified management session
+open during the first production run and test a second login before closing it.
+
 ## Inventory Example
 
 ```ini
@@ -88,5 +108,5 @@ python3 scripts/validate_handler_notifications.py handler-contract.json
 - Add Docker Compose app deployment role
 - Add PostgreSQL backup and restore role
 - Add Loki/Promtail role
-- Add SSH policy templates
+- Add SSH host-key rotation and staged authentication migration controls
 - Add CIS-inspired hardening tasks
