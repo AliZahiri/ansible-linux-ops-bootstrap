@@ -1,0 +1,10 @@
+- name: Validate SSH daemon configuration
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false
+  listen: Validate and reload SSH
+  notify: Reload SSH daemon
+
+- name: Reload SSH daemon
+  ansible.builtin.service:
+    name: "{{ ssh_service_name }}"
+    state: reloaded
