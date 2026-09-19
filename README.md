@@ -100,8 +100,12 @@ done
 Parsed task notifications can also be checked against the available handler names:
 
 ```bash
-python3 scripts/validate_handler_notifications.py handler-contract.json
+python3 scripts/validate_handler_notifications.py examples/handler-contract.example.json
 ```
+
+The example uses the SSH hardening role's `Validate and reload SSH` listener
+name. Replace both arrays with the notifications and resolved handler/listener
+names from the playbooks under review.
 
 ## Next Iterations
 

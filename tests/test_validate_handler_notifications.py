@@ -11,6 +11,9 @@ from scripts.validate_handler_notifications import (
 )
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 class HandlerNotificationContractTests(unittest.TestCase):
     def test_defined_case_sensitive_notifications_pass(self):
         self.assertTrue(handler_notifications_are_valid(notifications=["Restart Docker", "Reload Nginx"], handlers=["Restart Docker", "Reload Nginx"]))
@@ -84,6 +87,25 @@ class HandlerNotificationContractTests(unittest.TestCase):
 
         self.assertEqual(2, result.returncode)
         self.assertIn("notifications must be a JSON array", result.stderr)
+
+    def test_documented_example_is_a_valid_cli_contract(self):
+        result = subprocess.run(
+            [
+                "python3",
+                "scripts/validate_handler_notifications.py",
+                "examples/handler-contract.example.json",
+            ],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertTrue(report["valid"])
+        self.assertEqual(1, report["notification_count"])
+        self.assertEqual(1, report["handler_count"])
 
 
 if __name__ == "__main__":
