@@ -1,0 +1,8 @@
+{
+  "notifications": [
+    "Validate and reload SSH"
+  ],
+  "handlers": [
+    "Validate and reload SSH"
+  ]
+}
