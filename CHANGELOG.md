@@ -6,7 +6,7 @@ The project follows Semantic Versioning for public release snapshots. The
 validation helpers inspect supplied configuration and evidence; they do not
 replace an operator's change review or a live restore drill.
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-09-25
 
 ### Added
 
