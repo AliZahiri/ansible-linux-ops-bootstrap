@@ -1470,6 +1470,15 @@
     "portfolio_reason": "Adds a reviewable least-privilege contract for service units, complementing restart and resource controls with concrete host isolation requirements.",
     "test_instructions": "Run python3 -m unittest discover -s tests and confirm required isolation directives and absolute writable paths pass while disabled or malformed settings fail.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "systemd-runtime-identity-contract-gate",
+    "title": "Add systemd runtime identity contract gate",
+    "files": [
+      {"path": "docs/daily/systemd-runtime-identity-contract-gate.md", "kind": "document", "content": "Service isolation also requires an intentional runtime identity. This offline contract rejects root execution, requires a named user and group, and makes supplementary privilege groups explicit before a unit definition is promoted."},
+      {"path": "scripts/validate_systemd_runtime_identity.py", "content": "from __future__ import annotations\n\n\ndef systemd_runtime_identity_violations(settings: object) -> tuple[str, ...]:\n    if not isinstance(settings, dict): return (\"runtime_identity_must_be_an_object\",)\n    violations: list[str] = []\n    for field in (\"User\", \"Group\"):\n        value = settings.get(field)\n        if not isinstance(value, str) or not value.strip() or value == \"root\": violations.append(f\"{field}_must_be_a_non_root_identity\")\n    groups = settings.get(\"SupplementaryGroups\", [])\n    if not isinstance(groups, list) or any(not isinstance(group, str) or not group.strip() for group in groups) or len(set(groups)) != len(groups): violations.append(\"SupplementaryGroups_must_be_unique_non_empty_strings\")\n    return tuple(violations)\n\ndef systemd_runtime_identity_is_safe(settings: object) -> bool: return not systemd_runtime_identity_violations(settings)\n"},
+      {"path": "tests/test_validate_systemd_runtime_identity.py", "content": "import unittest\nfrom scripts.validate_systemd_runtime_identity import systemd_runtime_identity_is_safe, systemd_runtime_identity_violations\n\nclass SystemdRuntimeIdentityContractTests(unittest.TestCase):\n    def test_non_root_identity_passes(self): self.assertTrue(systemd_runtime_identity_is_safe({\"User\": \"app\", \"Group\": \"app\", \"SupplementaryGroups\": [\"logs\"]}))\n    def test_root_and_duplicate_group_fail(self):\n        violations = systemd_runtime_identity_violations({\"User\": \"root\", \"Group\": \"\", \"SupplementaryGroups\": [\"ops\", \"ops\"]})\n        self.assertIn(\"User_must_be_a_non_root_identity\", violations); self.assertIn(\"Group_must_be_a_non_root_identity\", violations); self.assertIn(\"SupplementaryGroups_must_be_unique_non_empty_strings\", violations)\n\nif __name__ == \"__main__\": unittest.main()\n"}
+    ], "portfolio_reason": "Extends systemd hardening with a clear least-privilege runtime identity contract for platform services.", "test_instructions": "Run python3 -m unittest discover -s tests and confirm non-root user/group identities and unique optional groups pass.", "change_kind": "docs-and-code"
   }
 ]
 }
