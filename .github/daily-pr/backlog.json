@@ -1525,6 +1525,18 @@
     "portfolio_reason": "Adds time-bounded access control evidence for SSH keys, complementing provenance checks without recording credential material.",
     "test_instructions": "Run python3 -m unittest discover -s tests and confirm future, short-lived unique key assignments pass while expired, overlong, and duplicate assignments fail.",
     "change_kind": "docs-and-code"
+  },
+  {
+    "id": "ssh-authorized-key-restriction-gate",
+    "title": "Add SSH authorized-key restriction gate",
+    "files": [
+      {"path": "docs/daily/ssh-authorized-key-restriction-gate.md", "kind": "document", "content": "A time-bounded SSH key can still provide broader access than its task requires. This offline gate validates non-secret key-option metadata for restricted automation accounts: agent and port forwarding must be disabled, PTY allocation must be explicit, and a forced command must be present when interactive access is forbidden. It does not store a public key or alter a host."},
+      {"path": "scripts/validate_ssh_authorized_key_restrictions.py", "content": "from __future__ import annotations\n\n\ndef ssh_authorized_key_restriction_violations(entries: object) -> tuple[str, ...]:\n    if not isinstance(entries, list) or not entries: return ('authorized_key_entries_must_be_a_non_empty_list',)\n    violations: list[str] = []\n    for position, entry in enumerate(entries):\n        prefix = f'entry_{position}'\n        if not isinstance(entry, dict): violations.append(f'{prefix}:entry_must_be_an_object'); continue\n        if entry.get('allow_agent_forwarding') is not False: violations.append(f'{prefix}:agent_forwarding_must_be_disabled')\n        if entry.get('allow_port_forwarding') is not False: violations.append(f'{prefix}:port_forwarding_must_be_disabled')\n        interactive = entry.get('interactive_access')\n        if not isinstance(interactive, bool): violations.append(f'{prefix}:interactive_access_must_be_explicit')\n        elif not interactive:\n            command = entry.get('forced_command')\n            if not isinstance(command, str) or not command.strip(): violations.append(f'{prefix}:non_interactive_key_requires_forced_command')\n            if entry.get('allow_pty') is not False: violations.append(f'{prefix}:non_interactive_key_must_disable_pty')\n    return tuple(violations)\n"},
+      {"path": "tests/test_validate_ssh_authorized_key_restrictions.py", "content": "import unittest\nfrom scripts.validate_ssh_authorized_key_restrictions import ssh_authorized_key_restriction_violations\nclass SshAuthorizedKeyRestrictionTests(unittest.TestCase):\n    def test_restricted_automation_key_passes(self):\n        entry={'allow_agent_forwarding':False,'allow_port_forwarding':False,'interactive_access':False,'forced_command':'/usr/local/bin/backup','allow_pty':False}\n        self.assertEqual((), ssh_authorized_key_restriction_violations([entry]))\n    def test_broad_key_fails(self):\n        violations=ssh_authorized_key_restriction_violations([{'allow_agent_forwarding':True,'allow_port_forwarding':True,'interactive_access':False,'allow_pty':True}])\n        self.assertIn('entry_0:agent_forwarding_must_be_disabled', violations); self.assertIn('entry_0:non_interactive_key_requires_forced_command', violations); self.assertIn('entry_0:non_interactive_key_must_disable_pty', violations)\n"}
+    ],
+    "portfolio_reason": "Extends key lifecycle evidence with enforceable least-privilege metadata, reducing the blast radius of automation SSH access.",
+    "test_instructions": "Run python3 -m unittest discover -s tests and confirm restricted automation-key metadata passes while forwarding, missing forced commands, and implicit access modes fail.",
+    "change_kind": "docs-and-code"
   }
 ]
 }
