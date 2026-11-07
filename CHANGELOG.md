@@ -6,6 +6,21 @@ The project follows Semantic Versioning for public release snapshots. The
 validation helpers inspect supplied configuration and evidence; they do not
 replace an operator's change review or a live restore drill.
 
+## [Unreleased]
+
+### Added
+
+- Offline systemd contracts for service hardening, runtime identity, and
+  capability bounding.
+- Authorized-key checks for provenance, expiry, restrictions, and permitted
+  source addresses.
+- Focused tests and examples for the new SSH and systemd controls.
+
+### Changed
+
+- CI validates playbook syntax on Ubuntu 26.04, restricts validation
+  permissions, and pins GitHub Actions dependencies by commit SHA.
+
 ## [0.2.0] - 2026-09-25
 
 ### Added
