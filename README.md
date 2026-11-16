@@ -2,7 +2,7 @@
 
 Production-oriented Ansible baseline for preparing Linux servers for Docker Compose workloads, monitoring, and operational automation.
 
-See the [changelog](CHANGELOG.md) and the [v0.2.0 release candidate notes](docs/releases/v0.2.0.md) for the current scope, validation procedure, compatibility assumptions, and known limitations.
+See the [changelog](CHANGELOG.md) and the [v0.3.0 release notes](docs/releases/v0.3.0.md) for the current scope, validation procedure, compatibility assumptions, and known limitations.
 
 This repository is designed as a practical bootstrap kit for small and medium production environments where teams need repeatable server setup without introducing a full platform stack on day one.
 
